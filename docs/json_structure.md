@@ -87,3 +87,20 @@ Because raw data is chaotic. This structure brings:
 - **Traceability**: every number is linked to a match, a team, a player.
 - **Flexibility**: it’s easy to reshape this data into tables, dashboards, or ML-ready datasets.
 
+---
+
+### Sample JSON
+
+You can find a sample file with the full clean JSON structure here:
+
+[`docs/sample.json`](docs/sample.json)
+
+It includes all the expected keys and fields, including:
+
+- Match metadata
+- Teams
+- Events
+- Players with stats
+
+Feel free to use this file for testing your parser or database schema.
+

@@ -1,0 +1,57 @@
+{
+  "match_id": 123456,
+  "matchday": 5,
+  "local_team": {
+    "team_id": 1,
+    "team_name": "Team A",
+    "team_score": 2
+  },
+  "away_team": {
+    "team_id": 3,
+    "team_name": "Team b",
+    "team_score": 0
+  },
+  "stadium": "National Stadium",
+  "duracion":  97,
+  "events": [
+    {
+      "eventType": "Tarjeta roja",
+      "player_id": 10,
+      "team_id": 1,
+      "minute": 34
+    },
+    {
+      "eventType": "Substitution",
+      "player_id": 8,
+      "extra_player_id": 18,
+      "team_id": 2,
+      "minute": 65
+    }
+  ],
+  "players": [
+    {
+      "player_id": 10,
+      "name": "John Doe",
+      "jerseyNumber": 9,
+      "position": "Midfielder",
+      "ranking": 7.5,
+      "stats": [
+        { "name": "Centros", "value": 3 },
+        { "name": "Despejes", "value": 21 }
+      ],
+      "status": 1,
+      "team": "home"
+    },
+    {
+      "player_id": 8,
+      "name": "Mark Smith",
+      "jerseyNumber": 6,
+      "position": "Defender",
+      "ranking": 6.8,
+      "stats": [],
+      "status": 1,
+      "team": "away"
+    }
+  ]
+}
+
