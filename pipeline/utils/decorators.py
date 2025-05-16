@@ -8,7 +8,7 @@ def measure_time(func):
         start = time.perf_counter()
         result = func(*args, **kwargs)
         end = time.perf_counter()
-        print(f"⏱️  {func.__name__} tardó {(end - start):.2f} segundos.")
+        print(f"⏱  {func.__name__} tardó {(end - start):.2f} segundos.")
         return result
     return wrapper
 
