@@ -34,4 +34,3 @@ def build_match_queue_from_dir(matchday_dir):
     for file in sorted(match_files, key=lambda x: int(x.split('.')[0])):
         q.put(os.path.join(matchday_dir, file))
     return q
-
