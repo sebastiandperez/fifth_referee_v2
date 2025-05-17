@@ -1,4 +1,5 @@
 import psycopg2
+import json
 
 def load_db_config(config_path="credentials.json"):
     with open(config_path, "r", encoding="utf-8") as f:
