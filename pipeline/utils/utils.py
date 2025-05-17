@@ -1,25 +1,25 @@
 import os
 
-def reemplazar(texto):
+def replace(text):
     """
     Reemplaza caracteres especiales y espacios en blanco por guiones bajos.
-    Parametro: texto (str)
-    Retorna: texto (str) con los caracteres reemplazados.
+    Parametro: text (str)
+    Retorna: text (str) con los caracteres reemplazados.
     """
-    texto = texto.lower()
-    texto = texto.replace("á", "a")
-    texto = texto.replace("é", "e")
-    texto = texto.replace("í", "i")
-    texto = texto.replace("ó", "o")
-    texto = texto.replace("ú", "u")
-    texto = texto.replace("Á", "A")
-    texto = texto.replace("É", "E")
-    texto = texto.replace("Í", "I")
-    texto = texto.replace("Ó", "O")
-    texto = texto.replace("Ú", "U")
-    texto = texto.replace("ñ", "n")
-    texto = texto.replace("Ñ", "N")
-    texto = texto.replace(" ", "_")
-    texto = texto.replace("(", "")
-    texto = texto.replace(")", "")
-    return texto
+    text = text.lower()
+    text = text.replace("á", "a")
+    text = text.replace("é", "e")
+    text = text.replace("í", "i")
+    text = text.replace("ó", "o")
+    text = text.replace("ú", "u")
+    text = text.replace("Á", "A")
+    text = text.replace("É", "E")
+    text = text.replace("Í", "I")
+    text = text.replace("Ó", "O")
+    text = text.replace("Ú", "U")
+    text = text.replace("ñ", "n")
+    text = text.replace("Ñ", "N")
+    text = text.replace(" ", "_")
+    text = text.replace("(", "")
+    text = text.replace(")", "")
+    return text

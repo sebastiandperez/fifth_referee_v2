@@ -10,7 +10,6 @@ def build_matchday_queues(json_data_root, competition_name, season_label):
         raise FileNotFoundError(f"match_data directory not found: {matchdays_root}")
 
     queue_matchdays = queue.Queue()
-    # Solo subcarpetas numéricas (ordenadas)
     matchday_dirs = [
         os.path.join(matchdays_root, d)
         for d in os.listdir(matchdays_root)

@@ -1,6 +1,11 @@
--- REFERENCE
+-- SCHEMAS
 
+create schema if not exists stats authorization -- user;
 create schema if not exists reference authorization -- user;
+create schema if not exists core authorization  -- user;
+create schema if not exists registry authorization -- user;
+
+-- REFERENCE
 
 -- DATA TYPE
 
@@ -47,9 +52,13 @@ CREATE TABLE reference.competition (
     competition_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     current_champion_id SMALLINT NULL REFERENCES reference.team(team_id),
     competition_name VARCHAR NOT NULL UNIQUE,
+    default_matchdays SMALLINT NOT NULL default 38 check  (default_matchdays > 0)
     is_international BOOLEAN NOT NULL DEFAULT FALSE,
     continent reference.continent_enum NOT NULL
 );
+
+select * from reference.competition;
+ ;
 
 -- team
 
@@ -73,15 +82,19 @@ CREATE TABLE reference.player(
 
 -- Insert (safe method)
 
+drop procedure reference.insert_competition;
+
 CREATE OR REPLACE PROCEDURE reference.insert_competition(
     IN p_name TEXT,
     IN p_continent reference.continent_enum,
-    IN p_is_international BOOLEAN DEFAULT FALSE
+    IN p_is_international BOOLEAN DEFAULT FALSE,
+    IN p_default_matchdays SMALLINT DEFAULT 38
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
     existing_id SMALLINT;
+    v_matchdays SMALLINT;
 BEGIN
     -- Validación: nombre vacío
     IF TRIM(p_name) IS NULL OR TRIM(p_name) = '' THEN
@@ -93,11 +106,18 @@ BEGIN
         RAISE EXCEPTION 'Continent cannot be null';
     END IF;
 
-    -- Buscar competencia existente
+    -- Si el parámetro viene NULL, usar el default de la tabla (38)
+    v_matchdays := COALESCE(p_default_matchdays, 38);
+
+    IF v_matchdays <= 0 THEN
+        RAISE EXCEPTION 'Default matchdays must be a positive number';
+    END IF;
+
+    -- Buscar competencia existente (ignorar mayúsculas/minúsculas)
     SELECT competition_id
     INTO existing_id
     FROM reference.competition
-    WHERE LOWER(competition_name) = LOWER(p_name);
+    WHERE LOWER(competition_name) = LOWER(TRIM(p_name));
 
     IF existing_id IS NOT NULL THEN
         RAISE NOTICE 'Competition already exists with ID: %', existing_id;
@@ -105,20 +125,54 @@ BEGIN
     END IF;
 
     -- Insertar nueva competencia
-    INSERT INTO reference.competition (competition_name, is_international, continent)
-    VALUES (p_name, p_is_international, p_continent)
+    INSERT INTO reference.competition (
+        competition_name,
+        is_international,
+        continent,
+        default_matchdays
+    )
+    VALUES (
+        TRIM(p_name),
+        p_is_international,
+        p_continent,
+        v_matchdays
+    )
     RETURNING competition_id INTO existing_id;
 
     RAISE NOTICE 'Competition inserted successfully with ID: %', existing_id;
 END;
 $$;
 
--- E.g:
+-- Ejemplo de uso:
 
 -- call reference.insert_competition('La Liga', 'Europe', false);
 
+-- Getter (id by name)
+
+drop function reference.get_competition_id_by_name;
+
+CREATE OR REPLACE FUNCTION reference.get_competition_id_by_name(comp_name varchar)
+RETURNS INTEGER AS $$
+DECLARE
+    comp_id INTEGER;
+BEGIN
+    SELECT competition_id INTO comp_id
+    FROM reference.competition
+    WHERE LOWER(TRIM(competition_name)) = LOWER(TRIM(comp_name));
+
+    IF comp_id IS NULL THEN
+        RAISE EXCEPTION 'Competition "%" not found.', comp_name;
+    END IF;
+
+    RETURN comp_id;
+END;
+$$ LANGUAGE plpgsql;
+
+select * from reference.get_competition_id_by_name('la liga');
 
 -- Getter (Select active comp by Continents).
+
+drop function reference.get_competitions_by_continent;
 
 CREATE OR REPLACE FUNCTION reference.get_active_competitions_by_continent(
     p_continent reference.continent_enum
@@ -148,6 +202,8 @@ SELECT * FROM reference.get_active_competitions_by_continent('Europe');
 -- Team Table
 
 -- Insertion
+
+drop procedure reference.insert_team;
 
 CREATE OR REPLACE PROCEDURE reference.insert_team(
 	in p_team_id int,
@@ -188,6 +244,7 @@ END;
 $$;
 
 -- call reference.insert_team(2,'America','Cali', 'Palma Seca')
+-- select * from reference.team t;
 
 -- player
 
@@ -228,19 +285,19 @@ BEGIN
 END;
 $$;
 
--- E.g: 
-
 -- call reference.insert_player(2, 'lionel');
 
 -- CORE
 
 -- season
 
+drop table core.season;
+
 CREATE TABLE core.season (
     season_id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     
     season_label VARCHAR(20) NOT NULL,
-    competition_id SMALLINT NOT NULL REFERENCES reference.competition(competition_id),
+    competition_id SMALLINT NOT NULL REFERENCES reference.competition(competition_id) ON DELETE CASCADE,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     
     UNIQUE (competition_id, season_label)
@@ -251,7 +308,7 @@ CREATE TABLE core.season (
 CREATE TABLE core.matchday (
     matchday_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     
-    season_id INTEGER NOT NULL REFERENCES core.season(season_id),
+    season_id SMALLINT NOT NULL REFERENCES core.season(season_id) ON DELETE CASCADE,
     matchday_number SMALLINT NOT NULL CHECK (matchday_number > 0),
     
     UNIQUE (season_id, matchday_number)
@@ -259,10 +316,12 @@ CREATE TABLE core.matchday (
 
 -- match
 
+drop table core.match;
+
 CREATE TABLE core.match (
     match_id INTEGER PRIMARY KEY,
     
-    matchday_id INTEGER NOT NULL REFERENCES core.matchday(matchday_id),
+    matchday_id INTEGER NOT NULL REFERENCES core.matchday(matchday_id) ON DELETE CASCADE,
     local_team_id INTEGER NOT NULL REFERENCES reference.team(team_id),
     away_team_id INTEGER NOT NULL REFERENCES reference.team(team_id),
     CHECK (local_team_id <> away_team_id),
@@ -274,13 +333,12 @@ CREATE TABLE core.match (
     UNIQUE (matchday_id, local_team_id, away_team_id)
 );
 
-
 -- event
 
 CREATE TABLE core.event (
     event_id SERIAL PRIMARY KEY,
     
-    match_id INTEGER NOT NULL REFERENCES core.match(match_id),
+    match_id INTEGER NOT NULL REFERENCES core.match(match_id) ON DELETE CASCADE,
     event_type reference.event_type_enum NOT NULL,
     minute SMALLINT,
     main_player_id INTEGER REFERENCES reference.player(player_id),
@@ -291,7 +349,7 @@ CREATE TABLE core.event (
 -- participation
 
 CREATE TABLE core.participation (
-    match_id INTEGER NOT NULL REFERENCES core.match(match_id),
+    match_id INTEGER NOT NULL REFERENCES core.match(match_id) on delete cascade ,
     player_id INTEGER NOT NULL REFERENCES reference.player(player_id),
     
     status reference.status_enum NOT NULL,      -- starter, sub, manager, etc.
@@ -300,11 +358,9 @@ CREATE TABLE core.participation (
     PRIMARY KEY (match_id, player_id)
 );
 
--- basic_stats 
-
 CREATE TABLE core.basic_stats (
     basic_stats_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    match_id INTEGER NOT NULL,
+    match_id INTEGER NOT null ,
     player_id INTEGER NOT NULL,
 
     goals SMALLINT CHECK (goals >= 0),
@@ -322,8 +378,183 @@ CREATE TABLE core.basic_stats (
 
     UNIQUE (match_id, player_id),
     FOREIGN KEY (match_id, player_id)
-        REFERENCES core.participation(match_id, player_id)
+        REFERENCES core.participation(match_id, player_id) on delete cascade
 );
+
+-- Logic
+
+-- Core
+
+-- Season
+
+-- Insert (Safe mode)
+
+drop procedure core.insert_season;
+
+CREATE OR REPLACE PROCEDURE core.insert_season(
+    IN p_season_label TEXT,
+    IN p_competition_id INT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    existing_id INTEGER;
+BEGIN
+    -- Validación: label vacío
+    IF TRIM(p_season_label) IS NULL OR TRIM(p_season_label) = '' THEN
+        RAISE EXCEPTION 'Season label cannot be empty';
+    END IF;
+
+    -- Validación: competencia nula
+    IF p_competition_id IS NULL THEN
+        RAISE EXCEPTION 'Competition ID cannot be null';
+    END IF;
+
+    -- Buscar season existente (ignorando mayúsculas/minúsculas)
+    SELECT season_id
+    INTO existing_id
+    FROM core.season
+    WHERE competition_id = p_competition_id
+      AND LOWER(season_label) = LOWER(TRIM(p_season_label));
+
+    IF existing_id IS NOT NULL THEN
+        RAISE NOTICE 'Season already exists with ID: %', existing_id;
+        RETURN;
+    END IF;
+
+    -- Insertar nueva season
+    INSERT INTO core.season (
+        season_label,
+        competition_id,
+        is_completed
+    )
+    VALUES (
+        TRIM(p_season_label),
+        p_competition_id,
+        FALSE
+    )
+    RETURNING season_id INTO existing_id;
+
+    RAISE NOTICE 'Season inserted successfully with ID: %', existing_id;
+END;
+$$;
+
+-- CALL core.insert_season('2029_2030', 3);
+-- select * from core.season;
+
+-- Getter (season by id)
+
+drop function core.get_season_id;
+
+CREATE OR REPLACE FUNCTION core.get_season_id(
+    p_season_label TEXT,
+    p_competition_id int
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_season_id INTEGER;
+BEGIN
+    IF TRIM(p_season_label) IS NULL OR TRIM(p_season_label) = '' THEN
+        RETURN Null;
+    END IF;
+
+    IF p_competition_id IS NULL THEN
+        RETURN Null;
+    END IF;
+
+    SELECT season_id
+    INTO v_season_id
+    FROM core.season
+    WHERE competition_id = p_competition_id
+      AND LOWER(TRIM(season_label)) = LOWER(TRIM(p_season_label));
+
+    RETURN v_season_id;
+END;
+$$ LANGUAGE plpgsql;
+
+select * from core.get_season_id(
+    '2024_2025',
+    1
+)
+
+-- Matchdays
+
+-- Insert (Safe mode)
+
+drop procedure core.insert_matchdays;
+
+CREATE OR REPLACE PROCEDURE core.insert_matchdays(
+    IN p_season_id INTEGER,
+    IN p_total_matchdays INT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    matchday_number SMALLINT := 1;
+BEGIN
+    -- Validación: season_id vacío o nulo
+    IF p_season_id IS NULL THEN
+        RAISE EXCEPTION 'Season ID cannot be null';
+    END IF;
+
+    -- Validación: número de jornadas válido
+    IF p_total_matchdays IS NULL OR p_total_matchdays <= 0 THEN
+        RAISE EXCEPTION 'Total matchdays must be a positive number';
+    END IF;
+
+    -- Validación: existencia de la temporada
+    IF NOT EXISTS (SELECT 1 FROM core.season WHERE season_id = p_season_id) THEN
+        RAISE EXCEPTION 'Season with ID % does not exist', p_season_id;
+    END IF;
+
+    -- Inserción de las jornadas
+    WHILE matchday_number <= p_total_matchdays LOOP
+        INSERT INTO core.matchday (season_id, matchday_number)
+        VALUES (p_season_id, matchday_number);
+        matchday_number := matchday_number + 1;
+    END LOOP;
+
+    RAISE NOTICE '% matchdays inserted for season_id %', p_total_matchdays, p_season_id;
+END;
+$$;
+
+-- call core.insert_matchdays (6, 123);
+-- select * from core.matchday;
+
+-- Get (matchday_quantity_season)
+
+CREATE OR REPLACE FUNCTION core.count_matchdays(
+    p_season_id INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+    v_count INTEGER;
+    v_exists BOOLEAN;
+BEGIN
+    -- Validación: temporada nula
+    IF p_season_id IS NULL THEN
+        RAISE EXCEPTION 'Season ID cannot be null';
+    END IF;
+
+    -- Verificar si existe la temporada
+    SELECT EXISTS (
+        SELECT 1 FROM core.season WHERE season_id = p_season_id
+    ) INTO v_exists;
+
+    IF NOT v_exists THEN
+        RETURN -1;
+    END IF;
+
+    -- Contar jornadas si existe la temporada
+    SELECT COUNT(*) INTO v_count
+    FROM core.matchday
+    WHERE season_id = p_season_id;
+
+    RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- select core.count_matchdays(6);
 
 -- STATS
 
@@ -415,7 +646,6 @@ CREATE TABLE stats.forward_stats (
 
     successful_dribbles SMALLINT CHECK (successful_dribbles >= 0),
     total_dribbles SMALLINT CHECK (total_dribbles >= 0),
-    fouls_suffered SMALLINT CHECK (fouls_suffered >= 0)
 
     crosses SMALLINT CHECK (crosses >= 0),
     total_crosses SMALLINT CHECK (total_crosses >= 0),
@@ -443,6 +673,4 @@ CREATE TABLE registry.team_player (
     jersey_number SMALLINT,
     PRIMARY KEY (season_team_id, player_id)
 );
-
-
 
