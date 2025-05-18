@@ -3,10 +3,10 @@ from utils.utils import replace, load_schema_types, cast_df_with_schema
 from utils.db_utils import get_competition_id, get_season_id, get_connection, load_config, resolve_competition_and_season_ids
 from utils.match_utils import filter_new_matches_by_registered, build_clean_match_df
 from utils.team_matching import match_teams_progressive
+from utils.registry_utils import build_season_team_df
 from batch.batch_json import BatchExtractor
 from batch.multi_batch_extractor import MultiBatchExtractor
-from builders.team_builder import build_team_dataframe_from_matches, build_teams_from_footdata_API, build_team_dataframe
-
+from builders.team_builder import build_team_dataframe_from_matches, build_teams_from_footdata_API, build_team_dataframe, filter_new_teams
 
 if __name__ == "__main__":
     config = load_config("pipeline/config/config.json")
@@ -32,6 +32,9 @@ if __name__ == "__main__":
         all_player_stats.extend(result['player_stats'])
     
     match_df = build_clean_match_df(conn, all_matches, season_id)
+    total_teams_df = build_team_dataframe_from_matches(match_df)
+    match_season_team = build_season_team_df(conn, total_teams_df,  season_id)
+    incomplete_team_df = filter_new_teams(conn, total_teams_df)
+    team_df = build_team_dataframe(incomplete_team_df, competition_name, config['X-Auth-Token'])
+    print(match_season_team)
 
-
-    # build_team_dataframe(all_matches, competition_name, config['X-Auth-Token'])

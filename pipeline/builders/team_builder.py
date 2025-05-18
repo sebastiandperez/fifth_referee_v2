@@ -1,36 +1,20 @@
 from utils.api_utils import RateLimiter, extract_city
 from utils.team_matching import match_teams_progressive
+from utils.db_utils import get_all_team_ids
 import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def build_team_dataframe_from_matches(all_matches):
-    """
-    Builds a DataFrame containing unique teams extracted from the match data.
-
-    This function processes a list of match dictionaries, each containing information 
-    about local and away teams. It extracts the team_id and team_name for both teams 
-    from every match, then deduplicates them to ensure each team appears only once.
-
-    Args:
-        all_matches (list of dict): List of match records, each with keys such as 
-            'local_team_id', 'local_team_name', 'away_team_id', 'away_team_name'.
-
-    Returns:
-        pd.DataFrame: DataFrame with columns ['team_id', 'team_name'], one row per unique team.
-    """
-    teams_list = []
-    for match in all_matches:
-        teams_list.append({
-            "team_id": match["local_team_id"],
-            "team_name": match["local_team_name"]
-        })
-        teams_list.append({
-            "team_id": match["away_team_id"],
-            "team_name": match["away_team_name"]
-        })
-    df_teams = pd.DataFrame(teams_list).drop_duplicates(subset=["team_id", "team_name"]).reset_index(drop=True)
-    return df_teams
+def build_team_dataframe_from_matches(match_df):
+    local_teams = match_df[['local_team_id', 'local_team_name']].rename(
+        columns={'local_team_id': 'team_id', 'local_team_name': 'team_name'}
+    )
+    away_teams = match_df[['away_team_id', 'away_team_name']].rename(
+        columns={'away_team_id': 'team_id', 'away_team_name': 'team_name'}
+    )
+    all_teams = pd.concat([local_teams, away_teams], ignore_index=True)
+    all_teams = all_teams.drop_duplicates(subset=['team_id']).reset_index(drop=True)
+    return all_teams
 
 def build_teams_from_footdata_API(nombre_liga, token, max_requests=5, period=60, max_workers=5):
     """
@@ -111,7 +95,20 @@ def build_teams_from_footdata_API(nombre_liga, token, max_requests=5, period=60,
     df = pd.DataFrame(resultados)
     return df
 
-def build_team_dataframe(all_matches, league_name, token):
+def filter_new_teams(conn, total_teams_df):
+    """
+    Filtra equipos que aún no existen en reference.team.
+    total_teams_df: DataFrame con 'team_id' y 'team_name'
+    conn: conexión a la base de datos
+    Devuelve un DataFrame de equipos nuevos.
+    """
+    # Obtener todos los team_id existentes en la DB
+    existing_team_ids = set(get_all_team_ids(conn))
+    # Filtrar equipos nuevos
+    new_teams_df = total_teams_df[~total_teams_df['team_id'].isin(existing_team_ids)].reset_index(drop=True)
+    return new_teams_df
+
+def build_team_dataframe(incomplete_team_df, league_name, token):
     """
     Builds and enriches the teams DataFrame with city and stadium information from the API.
 
@@ -123,7 +120,7 @@ def build_team_dataframe(all_matches, league_name, token):
     Returns:
         pd.DataFrame: DataFrame with columns ['team_id', 'team_name', 'city', 'stadium'].
     """
-    main_dataframe = build_team_dataframe_from_matches(all_matches)    
+    main_dataframe =  incomplete_team_df
     secondary_dataframe = build_teams_from_footdata_API(league_name, token)
     
     # Matching

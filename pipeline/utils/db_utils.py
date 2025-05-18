@@ -53,6 +53,11 @@ def get_teams_in_season(conn, season_id):
         cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
         return [row[0] for row in cur.fetchall()]
 
+def get_team_ids_in_season(conn, season_id):
+    with conn.cursor() as cur:
+        cur.execute("SELECT team_id FROM registry.get_team_ids_in_season(%s)", (season_id,))
+        return [row[0] for row in cur.fetchall()]
+
 def get_all_team_ids(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT team_id FROM reference.get_all_team_ids()")
