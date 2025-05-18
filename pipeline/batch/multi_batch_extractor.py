@@ -1,5 +1,5 @@
 import concurrent.futures
-from extractors.batch_extractor import BatchExtractor
+from batch.batch_json import BatchExtractor
 
 class MultiBatchExtractor:
     def __init__(self, queue_matchdays, max_workers=4):
