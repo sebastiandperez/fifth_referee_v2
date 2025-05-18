@@ -1,10 +1,10 @@
 from utils.file_utils import build_matchday_queues
 from utils.utils import replace
 from utils.db_utils import get_competition_id, get_season_id, get_connection, load_config, resolve_competition_and_season_ids
+from utils.team_matching import match_teams_progressive
 from batch.batch_json import BatchExtractor
 from batch.multi_batch_extractor import MultiBatchExtractor
-from utils.team_enrichment import obtener_dataframe_liga
-import pandas as pd
+from builders.team_builder import build_team_dataframe_from_matches, build_teams_from_footdata_API, build_team_dataframe
 
 
 if __name__ == "__main__":
@@ -30,6 +30,4 @@ if __name__ == "__main__":
         all_players.extend(result['players'])
         all_player_stats.extend(result['player_stats'])
     
-    df = obtener_dataframe_liga(competition_name, config["X-Auth-Token"])
-    print(df)
-
+    build_team_dataframe(all_matches, competition_name, config['X-Auth-Token'])
