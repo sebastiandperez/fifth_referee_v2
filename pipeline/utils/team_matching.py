@@ -31,21 +31,18 @@ def match_teams_progressive(df1, df2, col1, col2,
             return best_name, best_score
         return None, None
 
-    # Primera ronda: token_sort_ratio estricto
     for name in list(remaining):
         match, score = best_match(name, fuzz.token_sort_ratio, strict_threshold)
         if match:
             matched[name] = (match, score, "token_sort_ratio")
             remaining.remove(name)
 
-    # Segunda ronda: partial_ratio
     for name in list(remaining):
         match, score = best_match(name, fuzz.partial_ratio, flexible_threshold)
         if match:
             matched[name] = (match, score, "partial_ratio")
             remaining.remove(name)
 
-    # Tercera ronda: combinación ponderada
     for name in list(remaining):
         best_score = 0
         best_match_name = None
@@ -61,23 +58,22 @@ def match_teams_progressive(df1, df2, col1, col2,
             matched[name] = (best_match_name, best_score, "combo_weighted")
             remaining.remove(name)
 
-    # Construir el DataFrame final con los nombres correctos
-    resultados = []
+    results = []
     for name in df1[col1]:
         if name in matched:
             match, score, method = matched[name]
-            resultados.append({
-                'team_name_scraped': name,  # Nombre en tu DataFrame principal
-                'team_name_api': match,     # Nombre en el DataFrame API
+            results.append({
+                'team_name_scraped': name,
+                'team_name_api': match,
                 'similitud': round(score, 2),
                 'metodo': method
             })
         else:
-            resultados.append({
+            results.append({
                 'team_name_scraped': name,
                 'team_name_api': None,
                 'similitud': None,
                 'metodo': "no_match"
             })
 
-    return pd.DataFrame(resultados)
+    return pd.DataFrame(results)

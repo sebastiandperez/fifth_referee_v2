@@ -1,6 +1,7 @@
 from utils.file_utils import build_matchday_queues
-from utils.utils import replace
+from utils.utils import replace, load_schema_types, cast_df_with_schema
 from utils.db_utils import get_competition_id, get_season_id, get_connection, load_config, resolve_competition_and_season_ids
+from utils.match_utils import filter_new_matches_by_registered, build_clean_match_df
 from utils.team_matching import match_teams_progressive
 from batch.batch_json import BatchExtractor
 from batch.multi_batch_extractor import MultiBatchExtractor
@@ -10,11 +11,11 @@ from builders.team_builder import build_team_dataframe_from_matches, build_teams
 if __name__ == "__main__":
     config = load_config("pipeline/config/config.json")
     json_data_root = config["json_data_root"]
-
+    conn = get_connection(config)
     competition_name = "la_liga" ##replace(input("Competition name: "))
     season_label = "2024_2025"##replace(input("Season label (e.g., 2024_2025): "))
 
-    competition_id, season_id = resolve_competition_and_season_ids(competition_name, season_label, config)
+    competition_id, season_id = resolve_competition_and_season_ids(conn ,competition_name, season_label)
     print(f"ID's Competitor: {competition_id} ID's Season: {season_id}")
 
     queue_matchdays = build_matchday_queues(json_data_root, competition_name, season_label)
@@ -30,4 +31,7 @@ if __name__ == "__main__":
         all_players.extend(result['players'])
         all_player_stats.extend(result['player_stats'])
     
-    build_team_dataframe(all_matches, competition_name, config['X-Auth-Token'])
+    match_df = build_clean_match_df(conn, all_matches, season_id)
+
+
+    # build_team_dataframe(all_matches, competition_name, config['X-Auth-Token'])

@@ -1,0 +1,10 @@
+{
+    "match_id": "int32",
+    "matchday": "int8",
+    "local_team_id": "int16",
+    "local_score": "int8",
+    "away_team_id": "int16",
+    "away_score": "int8",
+    "duration": "int8",
+    "stadium": "category"
+}

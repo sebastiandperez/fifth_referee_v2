@@ -11,10 +11,10 @@ class MatchJsonExtractor:
             "matchday": self.json_obj.get("matchday"),
             "local_team_id": self.json_obj.get("local_team", {}).get("team_id"),
             "local_team_name": self.json_obj.get("local_team", {}).get("team_name"),
-            "local_team_score": self.json_obj.get("local_team", {}).get("team_score"),
+            "local_score": self.json_obj.get("local_team", {}).get("team_score"),
             "away_team_id": self.json_obj.get("away_team", {}).get("team_id"),
             "away_team_name": self.json_obj.get("away_team", {}).get("team_name"),
-            "away_team_score": self.json_obj.get("away_team", {}).get("team_score"),
+            "away_score": self.json_obj.get("away_team", {}).get("team_score"),
             "stadium": self.json_obj.get("stadium"),
             "duration": self.json_obj.get("duration"),
         }

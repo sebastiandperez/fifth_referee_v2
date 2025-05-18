@@ -14,21 +14,16 @@ def get_connection(db_config):
         database=db_config["DB_NAME"]
     )
 
-def resolve_competition_and_season_ids(competition_name, season_label, db_config):
-    """
-    Abre la conexión, extrae competition_id y season_id y la cierra.
-    Retorna (competition_id, season_id)
-    """
-    with get_connection(db_config) as conn:
-        competition_id = get_competition_id(conn, competition_name)
-        if not competition_id:
-            raise ValueError(f"Competition '{competition_name}' not found in DB.")
+def resolve_competition_and_season_ids(conn, competition_name, season_label):
+    competition_id = get_competition_id(conn, competition_name)
+    if not competition_id:
+        raise ValueError(f"Competition '{competition_name}' not found in DB.")
 
-        season_id = get_season_id(conn, competition_id, season_label)
-        if not season_id:
-            raise ValueError(f"Season '{season_label}' for competition '{competition_name}' not found.")
+    season_id = get_season_id(conn, competition_id, season_label)
+    if not season_id:
+        raise ValueError(f"Season '{season_label}' for competition '{competition_name}' not found.")
 
-        return competition_id, season_id
+    return competition_id, season_id
 
 def get_competition_id(conn, competition_name):
     with conn.cursor() as cur:
@@ -42,4 +37,23 @@ def get_season_id(conn, competition_id, season_label):
         result = cur.fetchone()
         return result[0] if result else None
 
+def get_matchdays_id(conn, season_id):
+    with conn.cursor() as cur:
+        cur.execute("SELECT matchday_id FROM core.get_matchday_ids_in_season(%s)", (season_id,))
+        result = cur.fetchall()
+        return [row[0] for row in result] if result else []
 
+def get_matches_in_matchdays(conn, matchday_ids):
+    with conn.cursor() as cur:
+        cur.execute("SELECT match_id FROM core.get_matches_in_matchdays(%s)", (matchday_ids,))
+        return [row[0] for row in cur.fetchall()]
+
+def get_teams_in_season(conn, season_id):
+    with conn.cursor() as cur:
+        cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
+        return [row[0] for row in cur.fetchall()]
+
+def get_all_team_ids(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT team_id FROM reference.get_all_team_ids()")
+        return [row[0] for row in cur.fetchall()]

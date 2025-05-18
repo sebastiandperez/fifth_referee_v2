@@ -1,5 +1,5 @@
 import os
-
+import json
 def replace(text):
     """
     Reemplaza caracteres especiales y espacios en blanco por guiones bajos.
@@ -23,3 +23,12 @@ def replace(text):
     text = text.replace("(", "")
     text = text.replace(")", "")
     return text
+
+def load_schema_types(schema_path):
+    with open(schema_path, "r") as f:
+        schema = json.load(f)
+    return schema
+
+def cast_df_with_schema(df, schema_path):
+    dtype_dict = load_schema_types(schema_path)
+    return df.astype(dtype_dict)
