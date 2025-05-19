@@ -48,10 +48,10 @@ def get_matches_in_matchdays(conn, matchday_ids):
         cur.execute("SELECT match_id FROM core.get_matches_in_matchdays(%s)", (matchday_ids,))
         return [row[0] for row in cur.fetchall()]
 
-def get_teams_in_season(conn, season_id):
-    with conn.cursor() as cur:
-        cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
-        return [row[0] for row in cur.fetchall()]
+# def get_teams_in_season(conn, season_id):
+#     with conn.cursor() as cur:
+#         cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
+#         return [row[0] for row in cur.fetchall()]
 
 def get_team_ids_in_season(conn, season_id):
     with conn.cursor() as cur:
@@ -62,3 +62,45 @@ def get_all_team_ids(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT team_id FROM reference.get_all_team_ids()")
         return [row[0] for row in cur.fetchall()]
+
+def get_player_ids_by_match_ids(conn, match_ids):
+    """
+    Devuelve una lista de player_id que participaron en los match_id dados.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT player_id FROM core.get_player_ids_by_match_ids(%s)", 
+            (match_ids,)
+        )
+        return [row[0] for row in cur.fetchall()]
+
+def get_season_team_ids(conn, season_id, team_ids):
+    """
+    Devuelve una lista de season_team_id para una temporada y lista de team_id.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT season_team_id FROM registry.get_season_team_ids(%s, %s);",
+            (season_id, team_ids)
+        )
+        return [row[0] for row in cur.fetchall()]
+
+def get_all_player_ids(conn):
+    """
+    Devuelve una lista de todos los player_id existentes en reference.player.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT player_id FROM reference.get_all_player_ids();")
+        return [row[0] for row in cur.fetchall()]
+
+def get_player_ids_by_season_team_ids(conn, season_team_id_list):
+    """
+    Devuelve una lista de player_id para una lista de season_team_id.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT player_id FROM registry.get_player_ids_by_season_team_ids(%s)",
+            (season_team_id_list,)
+        )
+        return [row[0] for row in cur.fetchall()]
+
