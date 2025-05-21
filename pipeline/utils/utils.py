@@ -32,3 +32,6 @@ def load_schema_types(schema_path):
 def cast_df_with_schema(df, schema_path):
     dtype_dict = load_schema_types(schema_path)
     return df.astype(dtype_dict)
+
+def extract_and_flatten(results, key):
+    return [item for result in results for item in result.get(key, [])]

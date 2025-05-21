@@ -1,0 +1,8 @@
+{"team_id": "int16",
+"player_name": "string",
+"position": "category",
+"status" : "Int8",
+"jersey_number": "int8",
+"player_id":"Int32",
+"match_id": "int32"}
+

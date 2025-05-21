@@ -1,4 +1,5 @@
 from utils.db_utils import get_player_ids_by_season_team_ids, get_season_team_ids, get_player_ids_by_match_ids
+from utils.utils import cast_df_with_schema
 import pandas as pd
 
 def player_df_from_dict(player_dicts):
@@ -39,23 +40,26 @@ def drop_duplicate_participations(conn, player_df, match_id_list):
     mask = ~player_df['player_id'].isin(players_registered)
     return player_df[mask].reset_index(drop=True)
 
-def build_clean_player_df(conn, player_dicts, match_id_list):
+def build_clean_player_df(conn, player_dicts, match_id_list, schema_path="pipeline/config/player_schema.json"):
     """
-    Builds a pandas DataFrame from a list of player participation dictionaries.
-
-    Each dictionary should contain at least:
-        'match_id', 'team_id', 'player_id', 'player_name', 'jersey_number', 'position', 'status'
+    Builds a clean pandas DataFrame from a list of player participation dictionaries,
+    filters by valid match_ids, removes duplicates, and applies external schema casting.
 
     Args:
+        conn: DB connection, if needed for filtering.
         player_dicts (list of dict): List of player participation dictionaries.
+        match_id_list: List or DataFrame for valid match_ids.
+        schema_path (str): Path to JSON schema file for column types.
 
     Returns:
-        pd.DataFrame: DataFrame with typed columns for further processing.
+        pd.DataFrame: Cleaned and type-casted DataFrame for further processing.
     """
     player_df = player_df_from_dict(player_dicts)
-    # print(player_df)
     match_id_list = get_match_ids(match_id_list)
-    return drop_duplicate_participations(conn, player_df,match_id_list)
+    filtered_df = drop_duplicate_participations(conn, player_df, match_id_list)
+    # Castea tipos según tu esquema externo
+    filtered_df = cast_df_with_schema(filtered_df, schema_path)
+    return filtered_df
 
 def build_team_player (conn, player_df, season_id):
     team_ids = player_df['team_id'].drop_duplicates().tolist()

@@ -1,7 +1,7 @@
 class DataBaseLoader:
     """
     Loader class for inserting DataFrames into the database.
-    Each method inserts a specific entity (teams, players, matches, season_team).
+    Each method inserts a specific entity (teams, players, matches, season_team, team_player, participation).
     """
 
     def __init__(self, conn):
@@ -25,23 +25,31 @@ class DataBaseLoader:
             return
         with self.conn.cursor() as cur:
             insert_query = """
-            INSERT INTO reference.team (team_id, team_name)
-            VALUES (%s, %s)
+            INSERT INTO reference.team (team_id, team_name, team_city, team_stadium)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (team_id) DO NOTHING
             """
-            cur.executemany(insert_query, team_df[['team_id', 'team_name']].values.tolist())
+            cur.executemany(insert_query, team_df[['team_id', 'team_name', 'team_city', 'team_stadium']].values.tolist())
         self.conn.commit()
 
     def insert_players(self, players_df):
         """
-        Inserts new players into the appropriate table.
-        You must implement this logic based on your schema.
+        Inserts new players into reference.player table.
+        Only players not already present (by player_id) will be inserted.
 
         Args:
-            players_df (pd.DataFrame): Player info DataFrame.
+            players_df (pd.DataFrame): Must have 'player_id' and 'player_name'.
         """
-        # TODO: Implement player insertion logic
-        pass
+        if players_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO reference.player (player_id, player_name)
+            VALUES (%s, %s)
+            ON CONFLICT (player_id) DO NOTHING
+            """
+            cur.executemany(insert_query, players_df[['player_id', 'player_name']].values.tolist())
+        self.conn.commit()
 
     def insert_matches(self, match_df):
         """
@@ -49,27 +57,45 @@ class DataBaseLoader:
         Only matches not already present (by match_id) will be inserted.
 
         Args:
-            match_df (pd.DataFrame): Columns must correspond to the match table.
+            match_df (pd.DataFrame): DataFrame with at least the required match columns.
         """
         if match_df.empty:
             return
+
+        # Define the exact columns needed for the DB (and in the correct order!)
+        required_cols = [
+            'match_id',
+            'matchday_id',
+            'local_team_id',
+            'away_team_id',
+            'local_score',
+            'away_score',
+            'duration',
+            'stadium'
+        ]
+
+        # Check all columns exist
+        missing = [col for col in required_cols if col not in match_df.columns]
+        if missing:
+            raise ValueError(f"Missing columns in match_df: {missing}")
+
+        # Select only the required columns
+        filtered_df = match_df[required_cols]
+
         with self.conn.cursor() as cur:
-            cols = match_df.columns.tolist()
             insert_query = f"""
-            INSERT INTO core.match ({', '.join(cols)})
-            VALUES ({', '.join(['%s'] * len(cols))})
+            INSERT INTO core.match ({', '.join(required_cols)})
+            VALUES ({', '.join(['%s'] * len(required_cols))})
             ON CONFLICT (match_id) DO NOTHING
             """
-            cur.executemany(insert_query, match_df.values.tolist())
+            cur.executemany(insert_query, filtered_df.values.tolist())
         self.conn.commit()
+
 
     def insert_season_teams(self, season_team_df):
         """
         Inserts (season_id, team_id) pairs into registry.season_team table.
         Only new pairs will be inserted.
-
-        Args:
-            season_team_df (pd.DataFrame): Must have 'season_id' and 'team_id'.
         """
         if season_team_df.empty:
             return
@@ -82,21 +108,60 @@ class DataBaseLoader:
             cur.executemany(insert_query, season_team_df[['season_id', 'team_id']].values.tolist())
         self.conn.commit()
 
-    def load_all(self, team_df, players_df, match_df, season_team_df):
+    def insert_team_players(self, team_player_df):
         """
-        Orchestrates insertion of all entities in order.
-        If any step fails, rolls back the transaction.
+        Inserts (season_team_id, player_id, jersey_number) into registry.team_player.
+        Only new pairs will be inserted.
 
         Args:
-            team_df, players_df, match_df, season_team_df: DataFrames to insert.
+            team_player_df (pd.DataFrame): Must have 'season_team_id', 'player_id', 'jersey_number'.
+        """
+        if team_player_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO registry.team_player (season_team_id, player_id, jersey_number)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (season_team_id, player_id) DO NOTHING
+            """
+            cur.executemany(insert_query, team_player_df[['season_team_id', 'player_id', 'jersey_number']].values.tolist())
+        self.conn.commit()
+
+    def insert_participations(self, participation_df):
+        """
+        Inserts participations (match_id, player_id, position, status) into core.participation.
+        Only new records will be inserted.
+
+        Args:
+            participation_df (pd.DataFrame): Must have 'match_id', 'player_id', 'position', 'status'.
+        """
+        if participation_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO core.participation (match_id, player_id, position, status)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (match_id, player_id) DO NOTHING
+            """
+            cur.executemany(insert_query, participation_df[['match_id', 'player_id', 'position', 'status']].values.tolist())
+        self.conn.commit()
+
+    def load_all_entities(self, team_df, player_df, match_df, season_team_df, team_player_df, participation_df):
+        """
+        Loads all entities into the DB in the correct order.
+
+        Args:
+            team_df, player_df, match_df, season_team_df, team_player_df, participation_df: DataFrames to insert.
         """
         try:
             self.insert_teams(team_df)
-            self.insert_players(players_df)
+            self.insert_players(player_df)
             self.insert_matches(match_df)
             self.insert_season_teams(season_team_df)
-            print("All data loaded successfully.")
+            self.insert_team_players(team_player_df)
+            self.insert_participations(participation_df)
+            print("All entities inserted successfully.")
         except Exception as e:
-            print("Error during loading process:", e)
+            print("Error during entity insertion:", e)
             self.conn.rollback()
             raise

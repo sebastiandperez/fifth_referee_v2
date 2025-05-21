@@ -108,7 +108,7 @@ def filter_new_teams(conn, total_teams_df):
     new_teams_df = total_teams_df[~total_teams_df['team_id'].isin(existing_team_ids)].reset_index(drop=True)
     return new_teams_df
 
-def build_team_dataframe(incomplete_team_df, league_name, token):
+def build_team_dataframe(main_dataframe, league_name, token):
     """
     Builds and enriches the teams DataFrame with city and stadium information from the API.
 
@@ -120,13 +120,13 @@ def build_team_dataframe(incomplete_team_df, league_name, token):
     Returns:
         pd.DataFrame: DataFrame with columns ['team_id', 'team_name', 'city', 'stadium'].
     """
-    main_dataframe =  incomplete_team_df
-    secondary_dataframe = build_teams_from_footdata_API(league_name, token)
+    if main_dataframe.empty:
+        print("No new teams to process. All teams are already in the database.")
+        return main_dataframe
+    else:
+        secondary_dataframe = build_teams_from_footdata_API(league_name, token)
     
-    # Matching
     matches = match_teams_progressive(main_dataframe, secondary_dataframe, "team_name", "team_name")
-    
-    # Map API team names to local team names
     api_to_local_mapping = dict(zip(matches['team_name_api'], matches['team_name_scraped']))
     secondary_dataframe['team_name'] = secondary_dataframe['team_name'].replace(api_to_local_mapping)
 
@@ -137,6 +137,6 @@ def build_team_dataframe(incomplete_team_df, league_name, token):
         on="team_name",
         how="left"
     )
+    df_teams = df_teams.rename(columns={'city': 'team_city', 'stadium': 'team_stadium'})
 
-    print(df_teams)
     return df_teams

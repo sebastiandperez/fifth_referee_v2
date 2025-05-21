@@ -1,5 +1,8 @@
 pipeline/data_processing/match_extractor.py
 pipeline/data_processing/map_stats.py
 pipeline/config/config.json
+pipeline/data_processing/getter.py
+pipeline/data_processing/root.json
+pipeline/data_processing/field_map.json
 __pycache__/
 *.pyc

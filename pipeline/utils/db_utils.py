@@ -1,6 +1,6 @@
 import psycopg2
 import json
-
+import pandas as pd
 def load_config(config_path="credentials.json"):
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -38,20 +38,23 @@ def get_season_id(conn, competition_id, season_label):
         return result[0] if result else None
 
 def get_matchdays_id(conn, season_id):
+    """
+    Returns a DataFrame with matchday_id and matchday_number for the given season.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT matchday_id FROM core.get_matchday_ids_in_season(%s)", (season_id,))
-        result = cur.fetchall()
-        return [row[0] for row in result] if result else []
+        cur.execute("SELECT * FROM core.get_matchday_ids_in_season(%s);", (season_id,))
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=["matchday_id", "matchday"])
 
 def get_matches_in_matchdays(conn, matchday_ids):
     with conn.cursor() as cur:
         cur.execute("SELECT match_id FROM core.get_matches_in_matchdays(%s)", (matchday_ids,))
         return [row[0] for row in cur.fetchall()]
 
-# def get_teams_in_season(conn, season_id):
-#     with conn.cursor() as cur:
-#         cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
-#         return [row[0] for row in cur.fetchall()]
+def get_teams_in_season(conn, season_id):
+    with conn.cursor() as cur:
+        cur.execute("SELECT team_id FROM registry.get_teams_in_season(%s)", (season_id,))
+        return [row[0] for row in cur.fetchall()]
 
 def get_team_ids_in_season(conn, season_id):
     with conn.cursor() as cur:
@@ -104,3 +107,22 @@ def get_player_ids_by_season_team_ids(conn, season_team_id_list):
         )
         return [row[0] for row in cur.fetchall()]
 
+def get_season_team_table(conn, season_id):
+    """
+    Retrieves the full registry.season_team table for a given season_id.
+
+    Args:
+        conn: Active DB connection (psycopg2).
+        season_id (int): The season to filter.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns ['season_team_id', 'team_id', 'season_id']
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT season_team_id, team_id, season_id
+            FROM registry.season_team
+            WHERE season_id = %s
+        """, (season_id,))
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=['season_team_id', 'team_id', 'season_id'])

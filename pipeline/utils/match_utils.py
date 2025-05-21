@@ -1,4 +1,3 @@
-
 from utils.db_utils import get_matchdays_id, get_matches_in_matchdays
 from utils.utils import cast_df_with_schema
 import pandas as pd
@@ -16,25 +15,34 @@ def build_clean_match_df(
     conn,
     all_matches,
     season_id,
-    schema_path="pipeline/config/match_schema.json",
-    get_matchdays_id_func=get_matchdays_id,
-    get_matches_in_matchdays_func=get_matches_in_matchdays
+    schema_path="pipeline/config/match_schema.json"
 ):
     """
-    Filtra y castea los partidos para insertar en core.match.
-    all_matches: lista de dicts
-    conn: conexión activa a la DB
-    season_id: id de la temporada
-    schema_path: ruta al esquema JSON para cast
-    get_matchdays_id_func: función para extraer matchday_ids
-    get_matches_in_matchdays_func: función para extraer matches registrados
-    """
-    matchday_list = get_matchdays_id_func(conn, season_id)
-    registered_match_id = get_matches_in_matchdays_func(conn, matchday_list)
-    unfiltered_match_df = pd.DataFrame(all_matches)
-    match_df = unfiltered_match_df[~unfiltered_match_df['match_id'].isin(registered_match_id)]
-    match_df = cast_df_with_schema(match_df, schema_path)
+    Builds a clean, type-casted DataFrame of matches ready for DB insertion.
 
-    del unfiltered_match_df, matchday_list, registered_match_id
+    Args:
+        conn: Active DB connection.
+        all_matches (list of dict): Raw matches.
+        season_id (int): Season identifier.
+        schema_path (str): Path to JSON schema for dtype casting.
+
+    Returns:
+        pd.DataFrame: Cleaned DataFrame for insertion into core.match.
+    """
+    # 1. Raw DataFrame from list of matches
+    match_df_raw = pd.DataFrame(all_matches)
+    if match_df_raw.empty:
+        return match_df_raw
+
+    matchday_df = get_matchdays_id(conn, season_id)  # Expects DataFrame with matchday_id, matchday_number
+    # 3. Merge to get correct matchday_id in each match by matchday_number
+    match_df = match_df_raw.merge(matchday_df, on="matchday", how="left")
+
+    registered_match_ids = get_matches_in_matchdays(conn, matchday_df['matchday_id'].tolist())
+    match_df = match_df[~match_df['match_id'].isin(registered_match_ids)]
+    match_df = cast_df_with_schema(match_df, schema_path)
+    match_df = match_df.drop(columns=['matchday'])
+    del match_df_raw, matchday_df
     gc.collect()
+
     return match_df
