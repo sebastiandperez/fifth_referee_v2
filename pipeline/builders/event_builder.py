@@ -1,6 +1,7 @@
 import pandas as pd
 from utils.utils import cast_df_with_schema
-from utils.db_utils import match_has_events
+from utils.db_utils import match_has_events, get_all_player_ids
+from normalizers.event_type_normalizer import normalize_event_types
 
 def build_raw_event_df(events_list):
     """
@@ -78,4 +79,8 @@ def build_event_entity(
     df = cast_events_df(df, schema_path)
     if validate_minutes and not df.empty:
         df = validate_event_minutes(df, max_allowed=minute_max)
+    df = df.fillna(0)
+    df = normalize_event_types(df)
+    player_ids_set = get_all_player_ids(conn)
+    df = df[df['main_player_id'].isin(player_ids_set)]
     return df

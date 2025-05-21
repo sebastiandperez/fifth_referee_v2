@@ -145,6 +145,45 @@ class DataBaseLoader:
             """
             cur.executemany(insert_query, participation_df[['match_id', 'player_id', 'position', 'status']].values.tolist())
         self.conn.commit()
+    def insert_events(self, event_df):
+        """
+        Inserts new events into core.event table.
+        Only the relevant columns are inserted.
+
+        Args:
+            event_df (pd.DataFrame): DataFrame with columns:
+                ['match_id', 'event_type', 'minute', 'main_player_id', 'extra_player_id', 'team_id']
+        """
+        if event_df.empty:
+            print("No new events to insert.")
+            return
+
+        required_cols = [
+            'match_id',
+            'event_type',
+            'minute',
+            'main_player_id',
+            'extra_player_id',
+            'team_id'
+        ]
+
+        # Check all required columns exist
+        missing = [col for col in required_cols if col not in event_df.columns]
+        if missing:
+            raise ValueError(f"Missing columns in event_df: {missing}")
+
+        filtered_df = event_df[required_cols]
+
+        with self.conn.cursor() as cur:
+            insert_query = f"""
+            INSERT INTO core.event ({', '.join(required_cols)})
+            VALUES ({', '.join(['%s'] * len(required_cols))})
+            ON CONFLICT DO NOTHING
+            """
+            cur.executemany(insert_query, filtered_df.values.tolist())
+        self.conn.commit()
+        print(f"Inserted {len(filtered_df)} new events into core.event.")
+
 
     def load_all_entities(self, team_df, player_df, match_df, season_team_df, team_player_df, participation_df):
         """
@@ -160,6 +199,7 @@ class DataBaseLoader:
             self.insert_season_teams(season_team_df)
             self.insert_team_players(team_player_df)
             self.insert_participations(participation_df)
+            self.insert_events(event_df)
             print("All entities inserted successfully.")
         except Exception as e:
             print("Error during entity insertion:", e)

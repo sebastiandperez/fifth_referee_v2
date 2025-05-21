@@ -25,15 +25,17 @@ if __name__ == "__main__":
     conn,
     all_events,
     schema_path="pipeline/config/event_schema.json"
-)
-    print(event_df)
+)  
+    print(event_df['event_type'].unique())
     
     loader = DataBaseLoader(conn)
-    loader.load_all_entities(
-    team_df=team_df,
-    player_df=player_df,
-    match_df=match_df,
-    season_team_df=season_team_df,
-    team_player_df=team_player_df,
-    participation_df=participation_df
-)
+    loader.insert_events(event_df)
+#     loader.load_all_entities(
+#     team_df=team_df,
+#     player_df=player_df,
+#     match_df=match_df,
+#     season_team_df=season_team_df,
+#     team_player_df=team_player_df,
+#     participation_df=participation_df,
+#     events_df=event_df
+# )

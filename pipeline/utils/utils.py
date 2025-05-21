@@ -35,3 +35,7 @@ def cast_df_with_schema(df, schema_path):
 
 def extract_and_flatten(results, key):
     return [item for result in results for item in result.get(key, [])]
+
+def load_event_type_map(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
