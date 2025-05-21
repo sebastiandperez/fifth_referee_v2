@@ -126,3 +126,20 @@ def get_season_team_table(conn, season_id):
         """, (season_id,))
         rows = cur.fetchall()
     return pd.DataFrame(rows, columns=['season_team_id', 'team_id', 'season_id'])
+
+
+def match_has_events(conn, match_id):
+    """
+    Calls the DB function to check if a match has any registered events.
+
+    Args:
+        conn: Active DB connection.
+        match_id (int): The match to check.
+
+    Returns:
+        bool: True if at least one event exists for the match, else False.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT core.match_has_events(%s);", (match_id,))
+        result, = cur.fetchone()
+    return result

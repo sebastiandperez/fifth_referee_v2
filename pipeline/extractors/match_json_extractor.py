@@ -30,7 +30,7 @@ class MatchJsonExtractor:
                 "match_id": match_id,
                 "team_id": e.get("team_id"),
                 "minute": e.get("minute"),
-                "event_type": e.get("eventType"),
+                "event_type": e.get("event_type"),
                 "player_id": e.get("player_id"),
                 "extra_player_id": e.get("extra_player_id"),
             })
