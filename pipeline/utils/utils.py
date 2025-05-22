@@ -39,3 +39,14 @@ def extract_and_flatten(results, key):
 def load_event_type_map(path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+def get_unique_stat_names(player_stats):
+    """
+    Returns a sorted list of unique stat_name values in player_stats.
+    
+    player_stats: list of dicts with 'stat_name' key
+    """
+    stat_names = {stat['stat_name'] for stat in player_stats}
+    return sorted(stat_names)
+
+    ## 1. H 2. F 3. D 4. A 5. G. 6. I. 7. J 8. C 9.E 10. B

@@ -1,0 +1,14 @@
+{
+    "Minutes": "minutes",
+    "Goles": "goals",
+    "Asistencias": "assists",
+    "Toques": "touches",
+    "Pases completados": "passes_completed",
+    "Pases totales": "passes_total",
+    "Recuperación de la posesión": "ball_recoveries",
+    "Posesiones perdidas": "possessions_lost",
+    "Duelos aéreos (ganados)": "aerial_duels_won",
+    "Duelos aéreos (totales)": "aerial_duels_total",
+    "Duelos en el suelo (ganados)": "ground_duels_won",
+    "Duelos en el suelo (totales)": "ground_duels_total"
+}

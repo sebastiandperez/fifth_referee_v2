@@ -143,3 +143,27 @@ def match_has_events(conn, match_id):
         cur.execute("SELECT core.match_has_events(%s);", (match_id,))
         result, = cur.fetchone()
     return result
+
+def get_participations_without_stats_by_season(conn, season_id):
+    """
+    Calls the core.get_participations_without_stats_by_season DB function
+    and returns the result as a pandas DataFrame.
+    """
+    query = """
+        SELECT * FROM core.get_participations_without_stats_by_season(%s);
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (season_id,))
+        columns = [desc[0] for desc in cur.description]
+        data = cur.fetchall()
+    return pd.DataFrame(data, columns=columns)
+
+def get_basic_stats_keys_by_season(conn, season_id):
+    """
+    Calls the core.get_basic_stats_keys_by_season function in the DB
+    and returns a DataFrame with columns ['match_id', 'player_id'].
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT match_id, player_id FROM core.get_basic_stats_keys_by_season(%s)", (season_id,))
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=['match_id', 'player_id'])
