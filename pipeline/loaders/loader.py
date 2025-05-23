@@ -145,6 +145,7 @@ class DataBaseLoader:
             """
             cur.executemany(insert_query, participation_df[['match_id', 'player_id', 'position', 'status']].values.tolist())
         self.conn.commit()
+        
     def insert_events(self, event_df):
         """
         Inserts new events into core.event table.
@@ -183,6 +184,44 @@ class DataBaseLoader:
             cur.executemany(insert_query, filtered_df.values.tolist())
         self.conn.commit()
         print(f"Inserted {len(filtered_df)} new events into core.event.")
+
+    def insert_basic_stats(self, basic_stats_df):
+        """
+        Inserts new player basic stats into core.basic_stats table.
+        Only rows not already present (by match_id, player_id) will be inserted.
+
+        Args:
+            basic_stats_df (pd.DataFrame): DataFrame must have columns:
+                'match_id', 'player_id', 'minutes', 'goals', 'assists',
+                'touches', 'passes_total', 'passes_completed', 'ball_recoveries',
+                'possessions_lost', 'aerial_duels_won', 'aerial_duels_total',
+                'ground_duels_won', 'ground_duels_total'
+        """
+        if basic_stats_df.empty:
+            return
+
+        insert_query = """
+            INSERT INTO core.basic_stats (
+                match_id, player_id, minutes, goals, assists, touches,
+                passes_total, passes_completed, ball_recoveries, possessions_lost,
+                aerial_duels_won, aerial_duels_total, ground_duels_won, ground_duels_total
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT (match_id, player_id) DO NOTHING
+        """
+        # Extrae solo las columnas necesarias y convierte a lista de listas
+        values = basic_stats_df[
+            [
+                'match_id', 'player_id', 'minutes', 'goals', 'assists', 'touches',
+                'passes_completed_total', 'passes_completed_completed', 'ball_recoveries', 'possessions_lost',
+                'aerial_duels_won_completed', 'aerial_duels_won_total', 'ground_duels_won_completed', 'ground_duels_won_total'
+            ]
+        ].values.tolist()
+
+        with self.conn.cursor() as cur:
+            cur.executemany(insert_query, values)
+        self.conn.commit()
 
 
     def load_all_entities(self, team_df, player_df, match_df, season_team_df, team_player_df, participation_df):

@@ -6,7 +6,7 @@ from setup import initialize_pipeline
 from builders.build_match_entities import build_match_entities
 from builders.build_player_entities import build_player_entities
 from builders.event_builder import build_event_entity
-from builders.build_stats_entities import fetch_participations_and_existing_basic_stats, build_basic_stats_df
+from builders.build_stats_entities import build_basic_stats_for_season
 
 if __name__ == "__main__":
     config, json_data_root, conn, competition_name, season_label = initialize_pipeline()
@@ -23,10 +23,17 @@ if __name__ == "__main__":
 
     ## Working
     event_df = build_event_entity(conn,  all_events, schema_path="pipeline/config/event_schema.json")
-    ## Missing Stats part
-    raw_event_dataframe = fetch_participations_and_existing_basic_stats(conn, season_id)
-    event_stats = build_basic_stats_df(all_player_stats, raw_event_dataframe)
+    
+    ## Working
+    basic_stats_df = build_basic_stats_for_season(conn, season_id, all_player_stats)
+
+    ## Specific Stats
+    print(get_unique_stat_names(all_player_stats))
+
+
+
     loader = DataBaseLoader(conn)
+    loader.insert_basic_stats(basic_stats_df)
     # loader.insert_events(event_df)
 #     loader.load_all_entities(
 #     team_df=team_df,

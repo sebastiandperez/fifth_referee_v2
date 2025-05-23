@@ -48,5 +48,3 @@ def get_unique_stat_names(player_stats):
     """
     stat_names = {stat['stat_name'] for stat in player_stats}
     return sorted(stat_names)
-
-    ## 1. H 2. F 3. D 4. A 5. G. 6. I. 7. J 8. C 9.E 10. B
