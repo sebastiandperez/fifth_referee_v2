@@ -1,12 +1,12 @@
 import json
-from utils.db_utils import get_participations_without_stats_by_season, get_basic_stats_keys_by_season
+from utils.db_utils import get_participations_by_season, get_basic_stats_keys_by_season
 import pandas as pd
 from utils.utils import load_event_type_map
 from normalizers.basic_stats_normalizer import normalize_basic_stats_df, cast_basic_stats_df
 import gc
 
 def fetch_participations_and_existing_basic_stats(conn, season_id):
-    participation_df = get_participations_without_stats_by_season(conn, season_id)
+    participation_df = get_participations_by_season(conn, season_id)
     existing_keys_df = get_basic_stats_keys_by_season(conn, season_id)
     if participation_df.empty:
         return participation_df
@@ -18,6 +18,7 @@ def fetch_participations_and_existing_basic_stats(conn, season_id):
             how='left',
             indicator=True
         )
+        del existing_keys_df, participation_df
         filtered_df = filtered_df[filtered_df['_merge'] == 'left_only'].drop(columns=['_merge'])
         return filtered_df.reset_index(drop=True)
     else:
@@ -59,14 +60,13 @@ def build_df(raw_player_stats, participations_df):
     merged_df = normalize_basic_stats_df(merged_df)
     merged_df = merged_df[merged_df['minutes'] > 0].reset_index(drop=True)
     merged_df = cast_basic_stats_df(merged_df)
-    basic_stats_df = merged_df.drop(columns=['position'])
-    basic_stats_df.to_csv("mi_archivo.csv")
 
-    del stats_df,stat_name_map, stats_pivot, merged_df,split_cols
-    return basic_stats_df
+    del stats_df,stat_name_map, stats_pivot, split_cols
+    return merged_df
 
 def build_basic_stats_for_season(conn, season_id, all_player_stats):
     participations_df = fetch_participations_and_existing_basic_stats(conn, season_id)
     basic_stats_df = build_df(all_player_stats, participations_df)
     del participations_df
     return basic_stats_df
+

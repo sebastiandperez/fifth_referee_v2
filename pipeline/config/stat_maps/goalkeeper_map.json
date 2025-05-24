@@ -1,0 +1,13 @@
+{
+    "Salvadas de Portero": "goalkeeper_saves",
+    "Salvadas en el área": "saves_inside_box",
+    "Goles recibidos": "goals_conceded",
+    "Goles esperados al arco concedidos": "xg_on_target_against",
+    "Goles esperados evitados": "goals_prevented",
+    "Despeje con los puños": "punches_cleared",
+    "Despejes por alto": "high_claims",
+    "Despejes": "clearances",
+    "Penales atajados": "penalties_saved",
+    "Intercepciones": "interceptions",
+    "Regateado": "times_dribbled_past"
+}

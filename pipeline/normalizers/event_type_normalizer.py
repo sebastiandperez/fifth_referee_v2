@@ -7,7 +7,7 @@ def normalize_text(text):
     return text.strip().lower()
 
 def normalize_event_types(event_df):
-    event_type_map = load_event_type_map('pipeline/config/event_type.json')
+    event_type_map = load_event_map('pipeline/config/event_map.json')
     normalized_map = {normalize_text(k): v for k, v in event_type_map.items()}
     event_df['event_type'] = (
         event_df['event_type']

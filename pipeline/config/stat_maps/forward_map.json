@@ -1,0 +1,21 @@
+{
+    "Asistencias esperadas": "expected_assists",
+    "Goles esperados": "expected_goals",
+    "Goles esperados de remates al arco": "xg_from_shots_on_target",
+    "Goles": "goals",
+    "Asistencias": "assists",
+    "Total Remates": "shots_total",
+    "Remates al arco": "shots_on_target",
+    "Remates Fuera": "shots_off_target",
+    "Grandes chances": "big_chances",
+    "Grandes chances perdidas": "big_chances_missed",
+    "Grandes ocasiones convertidas": "big_chances_scored",
+    "Penal fallado": "penalties_missed",
+    "Fueras de Juego": "offside",
+    "Pases claves": "key_passes",
+    "Regates": "dribbles_completed",
+    "Regateado": "times_dribbled_past",
+    "Faltas cometidas": "fouls_committed",
+    "Faltas recibidas": "fouls_suffered",
+    "Pelotas al poste": "woodwork"
+}

@@ -144,13 +144,13 @@ def match_has_events(conn, match_id):
         result, = cur.fetchone()
     return result
 
-def get_participations_without_stats_by_season(conn, season_id):
+def get_participations_by_season(conn, season_id):
     """
-    Calls the core.get_participations_without_stats_by_season DB function
+    Calls the core.get_participations_by_season DB function
     and returns the result as a pandas DataFrame.
     """
     query = """
-        SELECT * FROM core.get_participations_without_stats_by_season(%s);
+        SELECT * FROM core.get_participations_by_season(%s);
     """
     with conn.cursor() as cur:
         cur.execute(query, (season_id,))
@@ -167,3 +167,19 @@ def get_basic_stats_keys_by_season(conn, season_id):
         cur.execute("SELECT match_id, player_id FROM core.get_basic_stats_keys_by_season(%s)", (season_id,))
         rows = cur.fetchall()
     return pd.DataFrame(rows, columns=['match_id', 'player_id'])
+
+def get_basic_stats_ids_by_season(conn, season_id):
+    query = "SELECT * FROM core.get_basic_stats_ids_by_season(%s);"
+    with conn.cursor() as cur:
+        cur.execute(query, (season_id,))
+        columns = [desc[0] for desc in cur.description]
+        data = cur.fetchall()
+    return pd.DataFrame(data, columns=columns)
+
+def get_all_registered_basic_stat_ids(conn):
+    query = "SELECT * FROM stats.get_all_registered_basic_stat_ids();"
+    with conn.cursor() as cur:
+        cur.execute(query)
+        ids = [row[0] for row in cur.fetchall()]
+    return set(ids)
+

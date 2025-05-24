@@ -1,5 +1,5 @@
 from utils.utils import replace, get_unique_stat_names
-from utils.db_utils import resolve_competition_and_season_ids, get_all_player_ids, get_participations_without_stats_by_season
+from utils.db_utils import resolve_competition_and_season_ids
 from loaders.loader import DataBaseLoader
 from extractors.extract_raw_data import extract_all_entities
 from setup import initialize_pipeline
@@ -7,7 +7,7 @@ from builders.build_match_entities import build_match_entities
 from builders.build_player_entities import build_player_entities
 from builders.event_builder import build_event_entity
 from builders.build_stats_entities import build_basic_stats_for_season
-
+from builders.build_specific_stats_entities import build_specific_stats_df
 if __name__ == "__main__":
     config, json_data_root, conn, competition_name, season_label = initialize_pipeline()
     competition_id, season_id = resolve_competition_and_season_ids(conn ,competition_name, season_label)
@@ -23,13 +23,12 @@ if __name__ == "__main__":
 
     ## Working
     event_df = build_event_entity(conn,  all_events, schema_path="pipeline/config/event_schema.json")
-    
+
     ## Working
     basic_stats_df = build_basic_stats_for_season(conn, season_id, all_player_stats)
 
     ## Specific Stats
-    print(get_unique_stat_names(all_player_stats))
-
+    goalkeeper_df, defender_df, midfielder_df, forward_df = build_specific_stats_df(conn, season_id, all_player_stats)
 
 
     loader = DataBaseLoader(conn)

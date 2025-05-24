@@ -16,5 +16,5 @@ def build_match_entities(conn, all_matches, competition_name, season_id, api_tok
     match_season_team = build_season_team_df(conn, total_teams_df, season_id)
     incomplete_team_df = filter_new_teams(conn, total_teams_df)
     team_df = build_team_dataframe(incomplete_team_df, competition_name, api_token)
-    del all_matches
+    del all_matches, incomplete_team_df
     return match_df, team_df, match_season_team
