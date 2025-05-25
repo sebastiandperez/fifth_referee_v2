@@ -57,7 +57,6 @@ def build_clean_player_df(conn, player_dicts, match_id_list, schema_path="pipeli
     player_df = player_df_from_dict(player_dicts)
     match_id_list = get_match_ids(match_id_list)
     filtered_df = drop_duplicate_participations(conn, player_df, match_id_list)
-    # Castea tipos según tu esquema externo
     filtered_df = cast_df_with_schema(filtered_df, schema_path)
     return filtered_df
 

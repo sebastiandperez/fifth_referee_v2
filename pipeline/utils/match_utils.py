@@ -33,11 +33,11 @@ def build_clean_match_df(
     match_df_raw = pd.DataFrame(all_matches)
     if match_df_raw.empty:
         return match_df_raw
-
+    
     matchday_df = get_matchdays_id(conn, season_id)  # Expects DataFrame with matchday_id, matchday_number
     # 3. Merge to get correct matchday_id in each match by matchday_number
     match_df = match_df_raw.merge(matchday_df, on="matchday", how="left")
-
+    match_df = match_df.dropna(subset=['match_id'])
     registered_match_ids = get_matches_in_matchdays(conn, matchday_df['matchday_id'].tolist())
     match_df = match_df[~match_df['match_id'].isin(registered_match_ids)]
     match_df = cast_df_with_schema(match_df, schema_path)

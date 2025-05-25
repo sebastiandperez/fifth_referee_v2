@@ -11,7 +11,6 @@ def initialize_pipeline(config_path="pipeline/config/config.json", competition=N
     config = load_config(config_path)
     json_data_root = config["json_data_root"]
     conn = get_connection(config)
-    # Puedes poner lógica para pedir input solo si no está definido
     competition_name = competition or config.get("competition_name") or "la_liga"
     season_label = season or config.get("season_label") or "2024_2025"
     return config, json_data_root, conn, competition_name, season_label

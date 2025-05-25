@@ -64,23 +64,31 @@ def build_event_entity(
     Orchestrates the event building pipeline:
     - Builds raw event DataFrame.
     - Filters out events for matches that already have events in DB.
+    - Normalizes event_type.
     - Casts types and validates minutes.
-
-    Returns:
-        pd.DataFrame: Ready-to-insert events DataFrame.
+    - Fills NA values (optional: only for numeric).
+    - Filters invalid player_id.
     """
     df = build_raw_event_df(events_list)
     if df.empty:
         return df
+    df = normalize_event_types(df)
+
     df = filter_events_new_matches(conn, df)
     if df.empty:
         print("No new events to insert.")
         return df
+
+
+    # Castea las columnas
     df = cast_events_df(df, schema_path)
+    # Solo después de castear, haz fillna para columnas numéricas
+    num_cols = df.select_dtypes(include=["number"]).columns
+    df[num_cols] = df[num_cols].fillna(0)
+
     if validate_minutes and not df.empty:
         df = validate_event_minutes(df, max_allowed=minute_max)
-    df = df.fillna(0)
-    df = normalize_event_types(df)
+
     player_ids_set = get_all_player_ids(conn)
     df = df[df['main_player_id'].isin(player_ids_set)]
     return df

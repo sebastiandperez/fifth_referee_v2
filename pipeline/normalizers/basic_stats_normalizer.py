@@ -4,8 +4,10 @@ import numpy as np
 
 
 def cast_basic_stats_df(df):
-    exclude_cols = {'match_id', 'player_id', 'position', 'minutes','touches', 'passes_completed_total'}
+    exclude_cols = {'match_id', 'player_id', 'position', 'minutes','touches', 'passes_completed_total', 'passes_completed_completed'}
     df['touches'] = pd.to_numeric(df['touches'], errors='coerce').fillna(0). astype(np.int16)
+    if 'passes_completed_completed' in df.columns:
+        df['passes_completed_completed'] = pd.to_numeric(df['passes_completed_completed'], errors='coerce').fillna(0).astype(np.int16)
     for col in df.columns:
         if col not in exclude_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(np.int8)

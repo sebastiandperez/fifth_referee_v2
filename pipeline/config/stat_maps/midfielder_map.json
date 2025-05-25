@@ -1,4 +1,5 @@
 {
+    "basic_stats_id": "basic_stats_id",
     "Asistencias esperadas": "expected_assists",
     "Barridas ganadas": "successful_tackles",
     "Centros": "crosses",

@@ -1,4 +1,5 @@
 {
+    "basic_stats_id": "basic_stats_id",
     "Asistencias esperadas": "expected_assists",
     "Goles esperados": "expected_goals",
     "Goles esperados de remates al arco": "xg_from_shots_on_target",

@@ -1,8 +1,8 @@
 {
+    "basic_stats_id": "basic_stats_id",
     "Barridas ganadas": "tackles_won",
     "Intercepciones": "interceptions",
     "Despejes": "clearances",
-    "Despejes por alto": "high_clearances",
     "Regateado": "times_dribbled_past",
     "Error que llevó al gol": "errors_leading_to_goal",
     "Errores que terminan el disparo": "errors_leading_to_shot",

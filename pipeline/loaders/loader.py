@@ -223,8 +223,141 @@ class DataBaseLoader:
             cur.executemany(insert_query, values)
         self.conn.commit()
 
+    def insert_goalkeepers(self, gk_df):
+        """
+        Inserts goalkeeper stats into the stats.goalkeeper table.
+        Only inserts rows not already present (by primary key).
+        Args:
+            gk_df (pd.DataFrame): Must have required goalkeeper columns.
+        """
+        if gk_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO stats.goalkeeper_stats 
+            (basic_stats_id, goalkeeper_saves, saves_inside_box, goals_conceded, xg_on_target_against, goals_prevented,punches_cleared, high_claims, clearances, penalties_saved, interceptions, times_dribbled_past, penalties_received)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (basic_stats_id) DO NOTHING
+            """
+            cur.executemany(insert_query, gk_df[
+                ['basic_stats_id','Salvadas de Portero', 'Salvadas en el área', 'Goles recibidos',
+       'Goles esperados al arco concedidos', 'Goles esperados evitados',
+       'Despeje con los puños', 'Despejes por alto', 'Despejes',
+       'Penales atajados', 'Intercepciones', 'Regateado', 'Penales recibidos']
+            ].values.tolist())
+        self.conn.commit()
 
-    def load_all_entities(self, team_df, player_df, match_df, season_team_df, team_player_df, participation_df):
+    def insert_defenders(self, def_df):
+        """
+        Inserts defender stats into the stats.defender table.
+        """
+        if def_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO stats.defender_stats
+            (basic_stats_id , tackles_won, interceptions, clearances, times_dribbled_past, errors_leading_to_goal, errors_leading_to_shot, possessions_won_final_third, fouls_committed, tackles_total)
+            VALUES (%s, %s, %s, %s, %s,%s, %s, %s, %s, %s)
+            ON CONFLICT (basic_stats_id) DO NOTHING
+            """
+            cur.executemany(insert_query, def_df[
+                ['basic_stats_id', 'Barridas ganadas', 'Intercepciones', 'Despejes', 'Regateado', 'Error que llevó al gol','Errores que terminan el disparo', 'Posesiones ganadas en el último tercio', 'Faltas cometidas','Barridas totales']].values.tolist())
+        self.conn.commit()
+
+    def insert_midfielders(self, mid_df):
+        """
+        Inserts midfielder stats into the stats.midfielder table.
+        """
+        if mid_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO stats.midfielder_stats
+            (basic_stats_id, expected_assists, tackles_won, crosses, fouls_committed,
+    fouls_suffered, expected_goals, xg_from_shots_on_target, big_chances, big_chances_missed, big_chances_scored, interceptions, key_passes, passes_in_final_third, back_passes, long_passes_completed, woodwork,  possessions_won_final_third,    times_dribbled_past,
+    dribbles_completed, dribbles_total, shots_off_target, shots_on_target, shots_total, tackles_total,long_passes_total, crosses_total)
+            VALUES (%s, %s, %s, %s, %s,%s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (basic_stats_id) DO NOTHING
+            """
+            cur.executemany(insert_query, mid_df[
+                ['basic_stats_id', 'Asistencias esperadas', 'Barridas ganadas', 'Centros', 'Faltas cometidas', 'Faltas recibidas', 'Goles esperados', 'Goles esperados de remates al arco', 'Grandes chances', 'Grandes chances perdidas', 'Grandes ocasiones convertidas', 'Intercepciones', 'Pases claves', 'Pases en el último tercio', 'Pases hacia atrás', 'Pases largos completados', 'Pelotas al poste', 'Posesiones ganadas en el último tercio', 'Regateado', 'Regates', 'Regates totales', 'Remates Fuera', 'Remates al arco', 'Total Remates', 'Barridas totales', 'Pases largos totales',  'Centros totales']].values.tolist())
+        self.conn.commit()
+
+    def insert_forwards(self, fwd_df):
+        """
+        Inserts forward stats into the stats.forward table.
+        """
+        if fwd_df.empty:
+            return
+        with self.conn.cursor() as cur:
+            insert_query = """
+            INSERT INTO stats.forward_stats
+            ( basic_stats_id, expected_assists, expected_goals, xg_from_shots_on_target, shots_total, shots_on_target, shots_off_target, big_chances,big_chances_missed, big_chances_scored ,penalties_won, penalties_missed, offside, key_passes, dribbles_completed, times_dribbled_past, fouls_committed, fouls_suffered, woodwork, dribbles_total)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (basic_stats_id) DO NOTHING
+            """
+            cur.executemany(insert_query, fwd_df[
+                ['basic_stats_id', 'Asistencias esperadas', 'Goles esperados','Goles esperados de remates al arco','Total Remates', 'Remates al arco', 'Remates Fuera', 'Grandes chances','Grandes chances perdidas', 'Grandes ocasiones convertidas', 'Penalties anotados', 'Penal fallado', 'Fueras de Juego', 'Pases claves', 'Regates','Regateado', 'Faltas cometidas', 'Faltas recibidas', 'Pelotas al poste','Regates totales']
+            ].values.tolist())
+        self.conn.commit()
+
+    def load_match_entities(self, match_df, team_df, season_team_df):
+        """
+        Loads all entities into the DB in the correct order.
+
+        Args:
+            team_df, player_df, match_df, season_team_df, team_player_df, participation_df: DataFrames to insert.
+        """
+        try:
+            self.insert_teams(team_df)
+            self.insert_matches(match_df)
+            self.insert_season_teams(season_team_df)
+            print("All entities inserted successfully.")
+        except Exception as e:
+            print("Error during entity insertion:", e)
+            self.conn.rollback()
+            raise
+
+    def load_player_entities(self, participation_df, team_player_df, player_df, event_df, basic_stats_df):
+        """
+        Loads all entities into the DB in the correct order.
+
+        Args:
+            team_df, player_df, match_df, season_team_df, team_player_df, participation_df: DataFrames to insert.
+        """
+        try:
+            self.insert_players(player_df)
+            self.insert_team_players(team_player_df)
+            self.insert_participations(participation_df)
+            self.insert_basic_stats(basic_stats_df)
+            self.insert_events(event_df)
+            self.insert_basic_stats(basic_stats_df)
+            print("All entities inserted successfully.")
+        except Exception as e:
+            print("Error during entity insertion:", e)
+            self.conn.rollback()
+            raise
+
+    def load_stats_entities(self,  goalkeeper_df, defender_df, midfielder_df, forward_df):
+        """
+        Loads all entities into the DB in the correct order.
+
+        Args:
+            team_df, player_df, match_df, season_team_df, team_player_df, participation_df: DataFrames to insert.
+        """
+        try:
+            self.insert_goalkeepers(goalkeeper_df)
+            self.insert_defenders(defender_df)
+            self.insert_midfielders(midfielder_df)
+            self.insert_forwards(forward_df)
+            print("All entities inserted successfully.")
+        except Exception as e:
+            print("Error during entity insertion:", e)
+            self.conn.rollback()
+            raise
+
+
+    def load_all_entities(self, team_df, player_df, match_df, season_team_df, team_player_df, participation_df,event_df, basic_stats_df, goalkeeper_df, defender_df, midfielder_df, forward_df):
         """
         Loads all entities into the DB in the correct order.
 
@@ -239,6 +372,11 @@ class DataBaseLoader:
             self.insert_team_players(team_player_df)
             self.insert_participations(participation_df)
             self.insert_events(event_df)
+            self.insert_basic_stats(basic_stats_df)
+            self.insert_goalkeepers(goalkeeper_df)
+            self.insert_defenders(defender_df)
+            self.insert_midfielders(midfielder_df)
+            self.insert_forwards(forward_df)
             print("All entities inserted successfully.")
         except Exception as e:
             print("Error during entity insertion:", e)

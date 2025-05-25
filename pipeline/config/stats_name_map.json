@@ -4,6 +4,7 @@
     "Asistencias": "assists",
     "Toques": "touches",
     "Pases completados": "passes_completed",
+    "passes_completed_completed": "passes_completed_completed",
     "Pases totales": "passes_total",
     "Recuperación de la posesión": "ball_recoveries",
     "Posesiones perdidas": "possessions_lost",

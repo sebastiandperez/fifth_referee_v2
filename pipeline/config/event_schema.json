@@ -1,8 +1,8 @@
 {
-    "match_id": "int32",
-    "event_type": "string",
-    "minute": "int16",
-    "main_player_id": "Int64",
-    "extra_player_id": "Int64",
-    "team_id": "int16"
-  }  
+  "match_id": "Int32",
+  "event_type": "string",
+  "minute": "Int32",
+  "main_player_id": "Int64",
+  "extra_player_id": "Int64",
+  "team_id": "Int32"
+}

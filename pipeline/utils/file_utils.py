@@ -5,7 +5,7 @@ def build_matchday_queues(json_data_root, competition_name, season_label):
     """
     Devuelve un Queue principal de jornadas, donde cada elemento es un Queue con los partidos (.json) de esa jornada.
     """
-    matchdays_root = os.path.join(json_data_root, competition_name, season_label, "match_data")
+    matchdays_root = os.path.join(json_data_root, competition_name.replace(" ", "_").lower(), season_label, "match_data")
     if not os.path.exists(matchdays_root):
         raise FileNotFoundError(f"match_data directory not found: {matchdays_root}")
 
