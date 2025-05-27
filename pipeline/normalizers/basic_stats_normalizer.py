@@ -25,6 +25,14 @@ def normalize_basic_stats_df(df):
         )
         df['minutes'] = pd.to_numeric(df['minutes'], errors='coerce').fillna(0).astype(int)
 
+    if 'goals' in df.columns:
+        df['goals'] = (
+            df['goals']
+            .astype(str)
+            .str.extract(r'^(\d+)')[0] 
+        )
+        df['goals'] = pd.to_numeric(df['goals'], errors='coerce').fillna(0).astype(int)
+
     split_pattern = re.compile(r'(?P<completed>\d+)\s*/\s*(?P<total>\d+)')
 
     for col in df.columns:

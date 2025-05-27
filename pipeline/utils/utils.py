@@ -48,3 +48,31 @@ def get_unique_stat_names(player_stats):
     """
     stat_names = {stat['stat_name'] for stat in player_stats}
     return sorted(stat_names)
+import re
+
+def standardize_basic_stats_columns(df):
+    """
+    Renames normalized columns from <base>_completed/<base>_total
+    to <base> (for _completed) and <base>_total (for _total),
+    matching loader/database expectation.
+    """
+    new_columns = {}
+    # List of stat bases you want to standardize (add/remove as needed)
+    bases = [
+        'passes_completed',
+        'aerial_duels_won',
+        'ground_duels_won'
+    ]
+
+    for base in bases:
+        completed_col = f"{base}_completed"
+        total_col = f"{base}_total"
+
+        # For <base>_completed → <base>
+        if completed_col in df.columns:
+            new_columns[completed_col] = base
+        # For <base>_total → replace _completed with _total in base name
+        if total_col in df.columns:
+            new_columns[total_col] = base.replace('completed', 'total').replace('won', 'total')
+
+    return df.rename(columns=new_columns)

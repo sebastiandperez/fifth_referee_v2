@@ -6,8 +6,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 
-from getter import fetch_raw_match_json
-from normalizer import clean_match_data
+from matchday_extractor.getter import fetch_raw_match_json
+from matchday_extractor.normalizer import clean_match_data
 
 def process_match(url, idx, output_folder):
     try:

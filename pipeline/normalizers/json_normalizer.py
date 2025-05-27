@@ -1,5 +1,4 @@
 import json
-from normalizers.json_normalizer import normalize_member, normalize_lineup, normalize_stats, normalize_event,normalize_duration
 
 def normalize_member(member):
     jersey = member.get(field("jersey_number"))

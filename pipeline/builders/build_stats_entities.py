@@ -1,7 +1,7 @@
 import json
 from utils.db_utils import get_participations_by_season, get_basic_stats_keys_by_season
 import pandas as pd
-from utils.utils import load_event_type_map
+from utils.utils import load_event_type_map, standardize_basic_stats_columns
 from normalizers.basic_stats_normalizer import normalize_basic_stats_df, cast_basic_stats_df
 import gc
 
@@ -60,6 +60,8 @@ def build_df(raw_player_stats, participations_df):
     merged_df = normalize_basic_stats_df(merged_df)
     merged_df = merged_df[merged_df['minutes'] > 0].reset_index(drop=True)
     merged_df = cast_basic_stats_df(merged_df)
+    merged_df = standardize_basic_stats_columns(merged_df)
+    print(merged_df.columns)
 
     del stats_df,stat_name_map, stats_pivot, split_cols
     return merged_df
