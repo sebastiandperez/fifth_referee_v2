@@ -61,7 +61,6 @@ def build_df(raw_player_stats, participations_df):
     merged_df = merged_df[merged_df['minutes'] > 0].reset_index(drop=True)
     merged_df = cast_basic_stats_df(merged_df)
     merged_df = standardize_basic_stats_columns(merged_df)
-    print(merged_df.columns)
 
     del stats_df,stat_name_map, stats_pivot, split_cols
     return merged_df

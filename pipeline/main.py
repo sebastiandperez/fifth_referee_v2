@@ -18,7 +18,6 @@ if __name__ == "__main__":
     competition_id, season_id = resolve_competition_and_season_ids(conn ,competition_name, season_label)
     print(f"ID's Competitor: {competition_id} ID's Season: {season_id}")
     
-    # run_pipeline_with_args("la_liga","2024_2025")
     team_loader = TeamLoader(conn)
     player_loader = PlayerLoader(conn)
     match_loader = MatchLoader(conn)
@@ -29,11 +28,11 @@ if __name__ == "__main__":
     team_loader.insert_team_block(team_df, season_team_df)
 
     participation_df, team_player_df, player_df = build_player_entities(conn, all_players, match_df, season_id)
-    player_loader.insert_player_block(player_df, team_player_df)
+    player_loader.insert_player_block(player_df, team_player_df, participation_df)
 
     event_df = build_event_entity(conn,  all_events, schema_path="pipeline/config/event_schema.json")
     basic_stats_df = build_basic_stats_for_season(conn, season_id, all_player_stats)
-    match_loader.insert_match_block(match_df, participation_df, basic_stats_df)
+    match_loader.insert_match_block(match_df, basic_stats_df)
 
 
     goalkeeper_df, defender_df, midfielder_df, forward_df = build_specific_stats_df(conn, season_id, all_player_stats)

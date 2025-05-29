@@ -42,4 +42,6 @@ def build_player_entities(
     all_player_ids = get_all_player_ids(conn)
     player_df_final = build_player_df(player_df, all_player_ids)
     player_df = player_df_final[['player_id', 'player_name']]
+    team_player_df = team_player_df.drop_duplicates(subset=['season_team_id', 'player_id', 'jersey_number'])
+
     return participation_df, team_player_df, player_df
