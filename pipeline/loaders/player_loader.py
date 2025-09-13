@@ -183,7 +183,7 @@ class PlayerLoader(BaseLoader):
 
             conflicts = (total - bad_count) - inserted
             if bad_count:
-                self.log_warn(f"Skipping {bad_count} participations due to invalid FKs. Sample(20): {bad[:20]}")
+                self.log_info(f"Skipping {bad_count} participations due to invalid FKs. Sample(20): {bad[:20]}")
 
             self.log_info(
                 f"Participations batch -> received={total}, invalid_fks={bad_count}, "
