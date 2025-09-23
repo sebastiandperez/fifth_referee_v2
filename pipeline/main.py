@@ -12,11 +12,9 @@ from loaders.player_loader import PlayerLoader
 from loaders.match_loader import MatchLoader
 from loaders.stats_loader import StatsLoader
 from loaders.basic_stats_loader import BasicStatsLoader
-from matchday_extractor.batch_exporter import run_pipeline_with_args ## Method to build the json files.
 
 if __name__ == "__main__":
-    config, json_data_root, conn, competition_name, season_label = initialize_pipeline(competition='Premier League', season='2025_2026')
-    # run_pipeline_with_args(competition_name.lower().replace(" ","_"),season_label)
+    config, json_data_root, conn, competition_name, season_label = initialize_pipeline(competition='Ligue 1', season='2025_2026')
     competition_id, season_id = resolve_competition_and_season_ids(conn ,competition_name, season_label)
     print(f"ID's Competitor: {competition_id} ID's Season: {season_id}")
 

@@ -1,6 +1,7 @@
 import psycopg2
 import json
 import pandas as pd
+
 def load_config(config_path="credentials.json"):
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -72,7 +73,7 @@ def get_player_ids_by_match_ids(conn, match_ids):
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT player_id FROM core.get_player_ids_by_match_ids(%s)", 
+            "SELECT player_id FROM core.get_player_ids_by_match_ids(%s)",
             (match_ids,)
         )
         return [row[0] for row in cur.fetchall()]
