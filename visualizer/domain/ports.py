@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Protocol, Sequence, Optional
-from datetime import datetime
+
+from typing import Protocol, Sequence
 
 from .ids import (
-    CompetitionId, SeasonId, MatchdayId, MatchId, TeamId, PlayerId
+    CompetitionId, SeasonId, MatchdayId, MatchId, TeamId, PlayerId,
 )
 from .entities.competition import Competition
 from .entities.season import Season, SeasonTeam
@@ -13,8 +13,19 @@ from .entities.team import Team, TeamPlayer
 from .entities.player import Player
 from .entities.stats import (
     BasicStats, GoalkeeperStats, DefenderStats, MidfielderStats, ForwardStats,
-    StandingRow, TeamFormRow, TeamSplit
+    StandingRow, TeamFormRow, TeamSplit,
 )
+
+__all__ = [
+    # Catalog / reference
+    "CompetitionPort", "TeamPort", "PlayerPort",
+    # Season-centric
+    "SeasonPort",
+    # Match-centric
+    "MatchPort",
+    # Read models for services
+    "StandingsPort", "TeamAnalyticsPort", "PlayerStatsPort",
+]
 
 
 # ---- Catalog / reference ports ----
@@ -52,19 +63,24 @@ class MatchPort(Protocol):
     def list_events(self, match_id: MatchId) -> Sequence[Event]: ...
 
 
-# ---- Stats-centric (read models used by analytics/standings) ----
+# ---- Read models used by services ----
+# Keep these laser-focused on what services need. Structural typing means your
+# infrastructure adapter just needs to provide these call shapes.
 
 class StandingsPort(Protocol):
-    """Provides finalized match results or a precomputed standing dataset."""
+    """Provides finalized match *results* for standings computation."""
     def list_finalized_matches(self, season_id: SeasonId) -> Sequence[Match]: ...
 
 
 class TeamAnalyticsPort(Protocol):
-    """Provides data needed to compute team form and splits."""
+    """Provides a team’s season results for analytics like form/splits."""
     def list_results_for_team(self, season_id: SeasonId, team_id: TeamId) -> Sequence[Match]: ...
 
 
 class PlayerStatsPort(Protocol):
-    """If you have read models for top scorers, assisters, keepers, etc."""
+    """
+    Aggregate player stats read model. Use only if an analytics feature needs it.
+    Note: domain BasicStats is intentionally minimal. If you need the full DB shape,
+    consider a separate read DTO instead of expanding the domain entity.
+    """
     def list_basic_stats_by_season(self, season_id: SeasonId) -> Sequence[BasicStats]: ...
-    # You can add role-specific queries if precomputed

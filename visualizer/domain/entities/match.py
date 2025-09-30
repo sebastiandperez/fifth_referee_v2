@@ -70,6 +70,7 @@ class Match:
     away_team_id: TeamId
     kickoff_utc: Optional[DateTimeUTC] = None
     score: Optional[Score] = None
+    duration: Optional[int] = None
     finalized: bool = False
 
     participations: List[Participation] = field(default_factory=list)
