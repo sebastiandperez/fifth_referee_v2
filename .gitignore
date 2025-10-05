@@ -4,7 +4,8 @@ pipeline/config/config.json
 pipeline/matchday_extractor/getter.py
 pipeline/matchday_extractor/root.json
 pipeline/matchday_extractor/field_map.json
-matchdays_information.py
+pipeline/matchdays_information.py
+pipeline/matchday_extractor/matchdays_information.py
 fechas_txt/
 logs/
 __pycache__/

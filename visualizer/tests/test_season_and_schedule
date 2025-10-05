@@ -1,0 +1,48 @@
+import pytest
+
+from domain.entities.season import Season, SeasonTeam, SeasonSchedule
+from domain.entities.matchday import Matchday
+from domain.value_objects import Name
+from domain.ids import SeasonId, CompetitionId, TeamId, MatchdayId
+
+def test_season_schedule_add_team_and_duplicates():
+    season = Season(season_id=SeasonId("2025"), competition_id=CompetitionId("LIGA"), label=Name("2025"))
+    sched = SeasonSchedule(season=season)
+
+    tA = SeasonTeam(season_id=season.season_id, team_id=TeamId("A"))
+    tB = SeasonTeam(season_id=season.season_id, team_id=TeamId("B"))
+
+    sched.add_team(tA)
+    sched.add_team(tB)
+    assert [st.team_id for st in sched.teams] == [TeamId("A"), TeamId("B")]
+
+    dup = SeasonTeam(season_id=season.season_id, team_id=TeamId("A"))
+    with pytest.raises(ValueError):
+        sched.add_team(dup)
+
+def test_season_schedule_add_team_wrong_season_id():
+    season = Season(season_id=SeasonId("2025"), competition_id=CompetitionId("LIGA"), label=Name("2025"))
+    sched = SeasonSchedule(season=season)
+    wrong = SeasonTeam(season_id=SeasonId("OTHER"), team_id=TeamId("X"))
+
+    with pytest.raises(ValueError):
+        sched.add_team(wrong)
+
+def test_season_schedule_matchdays_uniqueness_and_season_check():
+    season = Season(season_id=SeasonId("2025"), competition_id=CompetitionId("LIGA"), label=Name("2025"))
+    sched = SeasonSchedule(season=season)
+
+    md1 = Matchday(matchday_id=MatchdayId("MD1"), season_id=season.season_id, number=1)
+    md2 = Matchday(matchday_id=MatchdayId("MD2"), season_id=season.season_id, number=2)
+
+    sched.add_matchday(md1)
+    sched.add_matchday(md2)
+    assert [m.number for m in sched.matchdays] == [1, 2]
+
+    dup_num = Matchday(matchday_id=MatchdayId("MDX"), season_id=season.season_id, number=2)
+    with pytest.raises(ValueError):
+        sched.add_matchday(dup_num)
+
+    wrong_season = Matchday(matchday_id=MatchdayId("MD3"), season_id=SeasonId("OTHER"), number=3)
+    with pytest.raises(ValueError):
+        sched.add_matchday(wrong_season)

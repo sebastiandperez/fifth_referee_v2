@@ -1,6 +1,9 @@
 import psycopg2
 import json
 import pandas as pd
+from typing import List, Tuple, Optional
+from dataclasses import dataclass
+
 def load_config(config_path="credentials.json"):
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -72,7 +75,7 @@ def get_player_ids_by_match_ids(conn, match_ids):
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT player_id FROM core.get_player_ids_by_match_ids(%s)", 
+            "SELECT player_id FROM core.get_player_ids_by_match_ids(%s)",
             (match_ids,)
         )
         return [row[0] for row in cur.fetchall()]
@@ -183,3 +186,107 @@ def get_all_registered_basic_stat_ids(conn):
         ids = [row[0] for row in cur.fetchall()]
     return set(ids)
 
+COMP_TABLE = "reference.competition"
+COMP_LABEL_COL = "competition_name"
+
+SEASON_TABLE = "core.season"
+SEASON_LABEL_COL = "season_label"
+
+@dataclass(frozen=True)
+class Choice:
+    idx: int
+    label: str
+
+def _fetch_distinct_labels(conn, table: str, col: str) -> List[str]:
+    sql = f"SELECT DISTINCT {col} FROM {table} WHERE {col} IS NOT NULL AND {col} <> '' ORDER BY {col} ASC;"
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        rows = cur.fetchall()
+    return [r[0] for r in rows]
+
+def _choose_from_list(title: str, options: List[str]) -> str:
+    if not options:
+        raise RuntimeError(f"No hay opciones para {title}.")
+    items = [Choice(i+1, lbl) for i, lbl in enumerate(options)]
+    while True:
+        print(f"\n{title}")
+        for it in items:
+            print(f"  {it.idx:2d}. {it.label}")
+        raw = input("> Selecciona por número o escribe texto para filtrar: ").strip()
+
+        # elegir por índice
+        if raw.isdigit():
+            k = int(raw)
+            if 1 <= k <= len(items):
+                return items[k-1].label
+            print("Índice fuera de rango. Intenta de nuevo.")
+            continue
+
+        # filtrar por substring (case-insensitive)
+        q = raw.lower()
+        filt = [it for it in items if q in it.label.lower()]
+        if not filt:
+            print("Sin coincidencias. Prueba otro filtro o un número.")
+            continue
+        # mostrar sólo filtradas y volver a pedir
+        items = [Choice(i+1, it.label) for i, it in enumerate(filt)]
+
+def ask_competition_and_season(conn) -> Tuple[str, str]:
+    """
+    1) Lista competitions (reference.competition.name) -> eliges una (competition_name)
+    2) Lista seasons (core.season.label) -> eliges una (season_label)
+    Retorna: (competition_name, season_label)
+    """
+    competitions = _fetch_distinct_labels(conn, COMP_TABLE, COMP_LABEL_COL)
+    competition_name = _choose_from_list("Competencias disponibles", competitions)
+
+    seasons = _fetch_distinct_labels(conn, SEASON_TABLE, SEASON_LABEL_COL)
+    season_label = _choose_from_list("Temporadas disponibles", seasons)
+
+    return competition_name, season_label
+
+def fetch_min_match_and_max_matchday(conn, season_id: int) -> Tuple[Optional[int], Optional[int]]:
+    """
+    Retorna (min_match_id, max_matchday_number_representativo) para la season dada.
+
+    - min_match_id: mínimo match_id en core.match JOIN core.matchday filtrado por season_id.
+    - max_matchday_number_representativo:
+        1) Cuenta partidos por matchday_number en la season.
+        2) Toma el/los matchday_number con mayor conteo.
+        3) Si hay empate, devuelve el máximo matchday_number entre esos.
+    Si no hay datos, cualquiera puede ser None.
+    """
+    with conn.cursor() as cur:
+        # 1) min(match_id) de la season (solo partidos de sus matchdays)
+        cur.execute(
+            """
+            SELECT MIN(m.match_id) AS min_match_id
+            FROM core.match m
+            JOIN core.matchday md ON md.matchday_id = m.matchday_id
+            WHERE md.season_id = %s;
+            """,
+            (season_id,)
+        )
+        row_min = cur.fetchone()
+        min_match_id: Optional[int] = row_min[0] if row_min else None
+
+        # 2) matchday_number "representativo": max entre los con mayor # de partidos
+        cur.execute(
+            """
+            WITH counts AS (
+                SELECT md.matchday_number, COUNT(m.match_id) AS cnt
+                FROM core.matchday md
+                JOIN core.match m ON m.matchday_id = md.matchday_id
+                WHERE md.season_id = %s
+                GROUP BY md.matchday_number
+            )
+            SELECT MAX(matchday_number)  -- "máximo entre los candidatos con mayor cnt"
+            FROM counts
+            WHERE cnt = (SELECT MAX(cnt) FROM counts);
+            """,
+            (season_id,)
+        )
+        row_max = cur.fetchone()
+        max_matchday_number: Optional[int] = row_max[0] if row_max else None
+
+    return min_match_id, max_matchday_number
