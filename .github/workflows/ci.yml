@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, v1.0-foundation, "feature/**", "refactor/**" ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fifth_referee
+          POSTGRES_USER: fr_user
+          POSTGRES_PASSWORD: fr_password
+        ports:
+          - 5432:5432
+        # Esperamos a que Postgres esté listo
+        options: >-
+          --health-cmd="pg_isready -U fr_user -d fifth_referee"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: fifth_referee
+      DB_USER: fr_user
+      DB_PASSWORD: fr_password
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply DB schema
+        run: |
+          psql "postgresql://fr_user:fr_password@localhost:5432/fifth_referee" \
+            -f docker/db/init/01_schema.sql
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Smoke test mínimo del pipeline
+      - name: Run ETL smoke check
+        run: |
+          python -m compileall pipeline
+
+      # Si luego tienes tests con pytest:
+      # - name: Run tests
+      #   run: |
+      #     pytest
