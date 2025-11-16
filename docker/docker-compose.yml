@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16
+    container_name: fifth_referee_db
+    environment:
+      POSTGRES_DB: fifth_referee
+      POSTGRES_USER: fr_user
+      POSTGRES_PASSWORD: fr_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - fr_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+
+volumes:
+  fr_pgdata:
+
