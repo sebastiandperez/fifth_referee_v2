@@ -1,0 +1,1560 @@
+--
+-- PostgreSQL database dump
+--
+
+\restrict L61PRfv7mMHLSV0e56b6iasRf4DcnVkCymXGmqsyhRp0kQMHzOc9CTFA8z3l3vk
+
+-- Dumped from database version 18.0
+-- Dumped by pg_dump version 18.0
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: core; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA core;
+
+
+--
+-- Name: reference; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA reference;
+
+
+--
+-- Name: registry; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA registry;
+
+
+--
+-- Name: stats; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA stats;
+
+
+--
+-- Name: continent_enum; Type: TYPE; Schema: reference; Owner: -
+--
+
+CREATE TYPE reference.continent_enum AS ENUM (
+    'Africa',
+    'Asia',
+    'Europe',
+    'North America',
+    'South America',
+    'AustraliaInternation'
+);
+
+
+--
+-- Name: event_type_enum; Type: TYPE; Schema: reference; Owner: -
+--
+
+CREATE TYPE reference.event_type_enum AS ENUM (
+    'Substitution',
+    'Yellow card',
+    'Red card',
+    'Woodwork',
+    'Goal',
+    'Own goal',
+    'Penalty',
+    'Penalty missed',
+    'Disallowed goal'
+);
+
+
+--
+-- Name: position_enum; Type: TYPE; Schema: reference; Owner: -
+--
+
+CREATE TYPE reference.position_enum AS ENUM (
+    'GK',
+    'DF',
+    'MF',
+    'FW',
+    'MNG'
+);
+
+
+--
+-- Name: status_enum; Type: TYPE; Schema: reference; Owner: -
+--
+
+CREATE TYPE reference.status_enum AS ENUM (
+    'starter',
+    'substitute',
+    'unused',
+    'other'
+);
+
+
+--
+-- Name: count_matchdays(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.count_matchdays(p_season_id integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_count INTEGER;
+    v_exists BOOLEAN;
+BEGIN
+    -- Validación: temporada nula
+    IF p_season_id IS NULL THEN
+        RAISE EXCEPTION 'Season ID cannot be null';
+    END IF;
+
+    -- Verificar si existe la temporada
+    SELECT EXISTS (
+        SELECT 1 FROM core.season WHERE season_id = p_season_id
+    ) INTO v_exists;
+
+    IF NOT v_exists THEN
+        RETURN -1;
+    END IF;
+
+    -- Contar jornadas si existe la temporada
+    SELECT COUNT(*) INTO v_count
+    FROM core.matchday
+    WHERE season_id = p_season_id;
+
+    RETURN v_count;
+END;
+$$;
+
+
+--
+-- Name: get_basic_stats_ids_by_season(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_basic_stats_ids_by_season(p_season_id integer) RETURNS TABLE(basic_stats_id integer, match_id integer, player_id integer, "position" reference.position_enum)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        bs.basic_stats_id,
+        bs.match_id,
+        bs.player_id,
+        p.position
+    FROM core.basic_stats bs
+    JOIN core.participation p
+        ON bs.match_id = p.match_id AND bs.player_id = p.player_id
+    JOIN core.match m
+        ON bs.match_id = m.match_id
+    JOIN core.matchday md
+        ON m.matchday_id = md.matchday_id
+    WHERE md.season_id = p_season_id;
+END;
+$$;
+
+
+--
+-- Name: get_basic_stats_keys_by_season(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_basic_stats_keys_by_season(p_season_id integer) RETURNS TABLE(match_id integer, player_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT s.match_id, s.player_id
+    FROM core.basic_stats s
+    JOIN core.match m ON s.match_id = m.match_id
+    JOIN core.matchday md ON m.matchday_id = md.matchday_id
+    WHERE md.season_id = p_season_id;
+END;
+$$;
+
+
+--
+-- Name: get_basic_stats_with_position_by_season(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_basic_stats_with_position_by_season(p_season_id integer) RETURNS TABLE(basic_stats_id integer, match_id integer, player_id integer, "position" reference.position_enum)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        bs.basic_stats_id,
+        bs.match_id,
+        bs.player_id,
+        p.position
+    FROM core.basic_stats bs
+    JOIN core.participation p
+        ON bs.match_id = p.match_id AND bs.player_id = p.player_id
+    JOIN core.match m
+        ON bs.match_id = m.match_id
+    JOIN core.matchday md
+        ON m.matchday_id = md.matchday_id
+    WHERE md.season_id = p_season_id;
+END;
+$$;
+
+
+--
+-- Name: get_matchday_ids_in_season(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_matchday_ids_in_season(p_season_id integer) RETURNS TABLE(matchday_id integer, matchday_number smallint)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT m.matchday_id, m.matchday_number
+    FROM core.matchday m
+    WHERE season_id = p_season_id
+    ORDER BY m.matchday_number;
+END;
+$$;
+
+
+--
+-- Name: get_matches_in_matchdays(integer[]); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_matches_in_matchdays(p_matchday_ids integer[]) RETURNS TABLE(match_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cm.match_id
+    FROM core.match cm
+    WHERE cm.matchday_id = ANY(p_matchday_ids);
+END;
+$$;
+
+
+--
+-- Name: get_participations_by_season(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_participations_by_season(p_season_id integer) RETURNS TABLE(match_id integer, player_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.match_id,
+        p.player_id
+    FROM core.participation p
+    WHERE p.status IN ('starter','substitute')
+      AND p.match_id IN (
+          SELECT m.match_id
+          FROM core.match m
+          JOIN core.matchday md ON m.matchday_id = md.matchday_id
+          WHERE md.season_id = p_season_id
+      )
+      AND NOT EXISTS (
+            SELECT 1 FROM core.basic_stats s
+            WHERE s.match_id = p.match_id
+              AND s.player_id = p.player_id
+        );
+END;
+$$;
+
+
+--
+-- Name: get_player_ids_by_match_ids(integer[]); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_player_ids_by_match_ids(p_match_ids integer[]) RETURNS TABLE(player_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT p.player_id
+    FROM core.participation p
+    WHERE match_id = ANY(p_match_ids);
+END;
+$$;
+
+
+--
+-- Name: get_season_id(text, integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.get_season_id(p_season_label text, p_competition_id integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_season_id INTEGER;
+BEGIN
+    IF TRIM(p_season_label) IS NULL OR TRIM(p_season_label) = '' THEN
+        RETURN Null;
+    END IF;
+
+    IF p_competition_id IS NULL THEN
+        RETURN Null;
+    END IF;
+
+    SELECT season_id
+    INTO v_season_id
+    FROM core.season
+    WHERE competition_id = p_competition_id
+      AND LOWER(TRIM(season_label)) = LOWER(TRIM(p_season_label));
+
+    RETURN v_season_id;
+END;
+$$;
+
+
+--
+-- Name: insert_matchdays(integer, integer); Type: PROCEDURE; Schema: core; Owner: -
+--
+
+CREATE PROCEDURE core.insert_matchdays(IN p_season_id integer, IN p_total_matchdays integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    matchday_number SMALLINT := 1;
+BEGIN
+    -- Validación: season_id vacío o nulo
+    IF p_season_id IS NULL THEN
+        RAISE EXCEPTION 'Season ID cannot be null';
+    END IF;
+
+    -- Validación: número de jornadas válido
+    IF p_total_matchdays IS NULL OR p_total_matchdays <= 0 THEN
+        RAISE EXCEPTION 'Total matchdays must be a positive number';
+    END IF;
+
+    -- Validación: existencia de la temporada
+    IF NOT EXISTS (SELECT 1 FROM core.season WHERE season_id = p_season_id) THEN
+        RAISE EXCEPTION 'Season with ID % does not exist', p_season_id;
+    END IF;
+
+    -- Inserción de las jornadas
+    WHILE matchday_number <= p_total_matchdays LOOP
+        INSERT INTO core.matchday (season_id, matchday_number)
+        VALUES (p_season_id, matchday_number);
+        matchday_number := matchday_number + 1;
+    END LOOP;
+
+    RAISE NOTICE '% matchdays inserted for season_id %', p_total_matchdays, p_season_id;
+END;
+$$;
+
+
+--
+-- Name: insert_season(text, integer); Type: PROCEDURE; Schema: core; Owner: -
+--
+
+CREATE PROCEDURE core.insert_season(IN p_season_label text, IN p_competition_id integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    existing_id INTEGER;
+BEGIN
+    -- Validación: label vacío
+    IF TRIM(p_season_label) IS NULL OR TRIM(p_season_label) = '' THEN
+        RAISE EXCEPTION 'Season label cannot be empty';
+    END IF;
+
+    -- Validación: competencia nula
+    IF p_competition_id IS NULL THEN
+        RAISE EXCEPTION 'Competition ID cannot be null';
+    END IF;
+
+    -- Buscar season existente (ignorando mayúsculas/minúsculas)
+    SELECT season_id
+    INTO existing_id
+    FROM core.season
+    WHERE competition_id = p_competition_id
+      AND LOWER(season_label) = LOWER(TRIM(p_season_label));
+
+    IF existing_id IS NOT NULL THEN
+        RAISE NOTICE 'Season already exists with ID: %', existing_id;
+        RETURN;
+    END IF;
+
+    -- Insertar nueva season
+    INSERT INTO core.season (
+        season_label,
+        competition_id,
+        is_completed
+    )
+    VALUES (
+        TRIM(p_season_label),
+        p_competition_id,
+        FALSE
+    )
+    RETURNING season_id INTO existing_id;
+
+    RAISE NOTICE 'Season inserted successfully with ID: %', existing_id;
+END;
+$$;
+
+
+--
+-- Name: match_has_events(integer); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.match_has_events(p_match_id integer) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM core.event WHERE match_id = p_match_id
+    );
+END;
+$$;
+
+
+--
+-- Name: trigger_insert_matchdays(); Type: FUNCTION; Schema: core; Owner: -
+--
+
+CREATE FUNCTION core.trigger_insert_matchdays() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_default_matchdays INT;
+BEGIN
+    -- Buscar el default_matchdays en reference.competition
+    SELECT c.default_matchdays
+    INTO v_default_matchdays
+    FROM reference.competition c
+    WHERE c.competition_id = NEW.competition_id;
+
+    -- Si no hay default_matchdays, error
+    IF v_default_matchdays IS NULL THEN
+        RAISE EXCEPTION 'default_matchdays is NULL for competition_id %', NEW.competition_id;
+    END IF;
+
+    -- Llamar al procedimiento existente
+    CALL core.insert_matchdays(NEW.season_id, v_default_matchdays);
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: get_active_competitions_by_continent(reference.continent_enum); Type: FUNCTION; Schema: reference; Owner: -
+--
+
+CREATE FUNCTION reference.get_active_competitions_by_continent(p_continent reference.continent_enum) RETURNS TABLE(competition_id smallint, competition_name text, is_international boolean, continent reference.continent_enum, current_champion_id smallint)
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.competition_id,
+        c.competition_name::TEXT,  -- casteo explícito
+        c.is_international,
+        c.continent,
+        c.current_champion_id
+    FROM reference.competition c
+    WHERE c.continent = p_continent;
+END;
+$$;
+
+
+--
+-- Name: get_all_player_ids(); Type: FUNCTION; Schema: reference; Owner: -
+--
+
+CREATE FUNCTION reference.get_all_player_ids() RETURNS TABLE(player_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT p.player_id FROM reference.player p ;
+END;
+$$;
+
+
+--
+-- Name: get_all_team_ids(); Type: FUNCTION; Schema: reference; Owner: -
+--
+
+CREATE FUNCTION reference.get_all_team_ids() RETURNS TABLE(team_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT rt.team_id 
+    FROM reference.team rt;
+END;
+$$;
+
+
+--
+-- Name: get_competition_id_by_name(text); Type: FUNCTION; Schema: reference; Owner: -
+--
+
+CREATE FUNCTION reference.get_competition_id_by_name(comp_name text) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    comp_id INTEGER;
+BEGIN
+    SELECT competition_id INTO comp_id
+    FROM reference.competition
+    WHERE LOWER(TRIM(competition_name)) = LOWER(TRIM(comp_name));
+
+    IF comp_id IS NULL THEN
+        RAISE EXCEPTION 'Competition "%" not found.', comp_name;
+    END IF;
+
+    RETURN comp_id;
+END;
+$$;
+
+
+--
+-- Name: insert_competition(text, reference.continent_enum, boolean, integer); Type: PROCEDURE; Schema: reference; Owner: -
+--
+
+CREATE PROCEDURE reference.insert_competition(IN p_name text, IN p_continent reference.continent_enum, IN p_is_international boolean DEFAULT false, IN p_default_matchdays integer DEFAULT 38)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    existing_id INT;
+    v_name TEXT;
+    v_matchdays SMALLINT;
+BEGIN
+    -- Validación: nombre vacío
+    IF TRIM(p_name) IS NULL OR TRIM(p_name) = '' THEN
+        RAISE EXCEPTION 'Competition name cannot be empty';
+    END IF;
+
+    -- Validación: continente nulo
+    IF p_continent IS NULL THEN
+        RAISE EXCEPTION 'Continent cannot be null';
+    END IF;
+
+    -- Normalización del nombre (reemplazar espacios por "_")
+    v_name :=p_name;
+
+    -- Si el parámetro viene NULL, usar el default de la tabla (38)
+    v_matchdays := COALESCE(p_default_matchdays, 38);
+
+    IF v_matchdays <= 0 THEN
+        RAISE EXCEPTION 'Default matchdays must be a positive number';
+    END IF;
+
+    -- Buscar competencia existente (ignorando mayúsculas/minúsculas y espacios convertidos a "_")
+    SELECT competition_id
+    INTO existing_id
+    FROM reference.competition
+    WHERE LOWER(competition_name) = LOWER(v_name);
+
+    IF existing_id IS NOT NULL THEN
+        RAISE NOTICE 'Competition already exists with ID: %', existing_id;
+        RETURN;
+    END IF;
+
+    -- Insertar nueva competencia
+    INSERT INTO reference.competition (
+        competition_name,
+        is_international,
+        continent,
+        default_matchdays
+    )
+    VALUES (
+        v_name,
+        p_is_international,
+        p_continent,
+        v_matchdays
+    )
+    RETURNING competition_id INTO existing_id;
+
+    RAISE NOTICE 'Competition inserted successfully with ID: %', existing_id;
+END;
+$$;
+
+
+--
+-- Name: insert_player(integer, character varying); Type: PROCEDURE; Schema: reference; Owner: -
+--
+
+CREATE PROCEDURE reference.insert_player(IN p_player_id integer, IN p_player_name character varying)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    existing_id INT;
+BEGIN
+    -- Validación: nombre vacío
+    IF TRIM(p_player_name) IS NULL OR TRIM(p_player_name) = '' THEN
+        RAISE EXCEPTION 'Player name cannot be empty';
+    END IF;
+
+    -- Validación: ID nulo o inválido
+    IF p_player_id IS NULL OR p_player_id < 0 THEN
+        RAISE EXCEPTION 'Invalid player ID';
+    END IF;
+
+    -- Verificar si ya existe el ID
+    SELECT player_id INTO existing_id
+    FROM reference.player
+    WHERE player_id = p_player_id;
+
+    IF existing_id IS NOT NULL THEN
+        RAISE NOTICE 'Player with ID % already exists', p_player_id;
+        RETURN;
+    END IF;
+
+    -- Insertar jugador
+    INSERT INTO reference.player (player_id, player_name)
+    VALUES (p_player_id, p_player_name);
+
+    RAISE NOTICE 'Player inserted with ID: %', p_player_id;
+END;
+$$;
+
+
+--
+-- Name: insert_team(integer, character varying, character varying, character varying); Type: PROCEDURE; Schema: reference; Owner: -
+--
+
+CREATE PROCEDURE reference.insert_team(IN p_team_id integer, IN p_team_name character varying, IN p_team_city character varying, IN p_stadium character varying)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    existing_id int;
+BEGIN
+    -- Validación
+    IF TRIM(p_team_name) IS NULL OR TRIM(p_team_name) = '' THEN
+        RAISE EXCEPTION 'Team name cannot be empty';
+    END IF;
+
+    IF p_team_city IS NULL THEN
+        RAISE EXCEPTION 'City must be provided';
+    END IF;
+
+    -- Buscar si ya existe
+    SELECT team_id INTO existing_id
+    FROM reference.team
+    WHERE LOWER(team_name) = LOWER(p_team_name);
+
+    IF existing_id IS NOT NULL THEN
+        RAISE NOTICE 'Team already exists with ID: %', existing_id;
+        RETURN;
+    END IF;
+
+    -- Insertar nuevo
+    INSERT INTO reference.team (team_id, team_name, team_city, team_stadium)
+    VALUES (p_team_id,p_team_name, p_team_city, p_stadium)
+    RETURNING team_id INTO existing_id;
+
+    RAISE NOTICE 'Team inserted with ID: %', existing_id;
+END;
+$$;
+
+
+--
+-- Name: get_player_ids_by_season_team_ids(integer[]); Type: FUNCTION; Schema: registry; Owner: -
+--
+
+CREATE FUNCTION registry.get_player_ids_by_season_team_ids(p_season_team_ids integer[]) RETURNS TABLE(player_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT ts.player_id
+    FROM registry.team_player ts
+    WHERE ts.season_team_id = ANY(p_season_team_ids);
+END;
+$$;
+
+
+--
+-- Name: get_season_team_id(integer, integer); Type: FUNCTION; Schema: registry; Owner: -
+--
+
+CREATE FUNCTION registry.get_season_team_id(p_season_id integer, p_team_id integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_season_team_id INTEGER;
+BEGIN
+    IF p_season_id IS NULL OR p_team_id IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT season_team_id
+    INTO v_season_team_id
+    FROM registry.season_team
+    WHERE season_id = p_season_id
+      AND team_id = p_team_id;
+
+    RETURN v_season_team_id;
+END;
+$$;
+
+
+--
+-- Name: get_season_team_ids(integer, integer[]); Type: FUNCTION; Schema: registry; Owner: -
+--
+
+CREATE FUNCTION registry.get_season_team_ids(p_season_id integer, p_team_ids integer[]) RETURNS TABLE(season_team_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT st.season_team_id
+    FROM registry.season_team st
+    WHERE st.season_id = p_season_id
+      AND st.team_id = ANY(p_team_ids);
+END;
+$$;
+
+
+--
+-- Name: get_team_ids_in_season(integer); Type: FUNCTION; Schema: registry; Owner: -
+--
+
+CREATE FUNCTION registry.get_team_ids_in_season(p_season_id integer) RETURNS TABLE(team_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT st.team_id
+    FROM registry.season_team st
+    WHERE st.season_id = p_season_id;
+END;
+$$;
+
+
+--
+-- Name: get_all_registered_basic_stat_ids(); Type: FUNCTION; Schema: stats; Owner: -
+--
+
+CREATE FUNCTION stats.get_all_registered_basic_stat_ids() RETURNS TABLE(basic_stats_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT gs.basic_stats_id FROM stats.goalkeeper_stats gs
+    UNION
+    SELECT ds.basic_stats_id FROM stats.defender_stats ds
+    UNION
+    SELECT ms.basic_stats_id FROM stats.midfielder_stats ms
+    UNION
+    SELECT fws.basic_stats_id FROM stats.forward_stats fws;
+END;
+$$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: basic_stats; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.basic_stats (
+    basic_stats_id integer NOT NULL,
+    match_id integer NOT NULL,
+    player_id integer NOT NULL,
+    minutes integer NOT NULL,
+    goals smallint,
+    assists smallint,
+    touches smallint,
+    passes_total smallint,
+    passes_completed smallint,
+    ball_recoveries smallint,
+    possessions_lost smallint,
+    aerial_duels_won smallint,
+    aerial_duels_total smallint,
+    ground_duels_won smallint,
+    ground_duels_total smallint,
+    CONSTRAINT basic_stats_aerial_duels_total_check CHECK ((aerial_duels_total >= 0)),
+    CONSTRAINT basic_stats_aerial_duels_won_check CHECK ((aerial_duels_won >= 0)),
+    CONSTRAINT basic_stats_assists_check CHECK ((assists >= 0)),
+    CONSTRAINT basic_stats_ball_recoveries_check CHECK ((ball_recoveries >= 0)),
+    CONSTRAINT basic_stats_goals_check CHECK ((goals >= 0)),
+    CONSTRAINT basic_stats_ground_duels_total_check CHECK ((ground_duels_total >= 0)),
+    CONSTRAINT basic_stats_ground_duels_won_check CHECK ((ground_duels_won >= 0)),
+    CONSTRAINT basic_stats_passes_completed_check CHECK ((passes_completed >= 0)),
+    CONSTRAINT basic_stats_passes_total_check CHECK ((passes_total >= 0)),
+    CONSTRAINT basic_stats_possessions_lost_check CHECK ((possessions_lost >= 0)),
+    CONSTRAINT basic_stats_touches_check CHECK ((touches >= 0))
+);
+
+
+--
+-- Name: basic_stats_basic_stats_id_seq; Type: SEQUENCE; Schema: core; Owner: -
+--
+
+ALTER TABLE core.basic_stats ALTER COLUMN basic_stats_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME core.basic_stats_basic_stats_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: event; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.event (
+    event_id integer NOT NULL,
+    match_id integer NOT NULL,
+    event_type reference.event_type_enum NOT NULL,
+    minute smallint,
+    main_player_id integer NOT NULL,
+    extra_player_id integer,
+    team_id integer,
+    CONSTRAINT event_minute_check CHECK ((minute >= 0))
+);
+
+
+--
+-- Name: event_event_id_seq; Type: SEQUENCE; Schema: core; Owner: -
+--
+
+CREATE SEQUENCE core.event_event_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: event_event_id_seq; Type: SEQUENCE OWNED BY; Schema: core; Owner: -
+--
+
+ALTER SEQUENCE core.event_event_id_seq OWNED BY core.event.event_id;
+
+
+--
+-- Name: match; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.match (
+    match_id integer NOT NULL,
+    matchday_id integer NOT NULL,
+    local_team_id integer NOT NULL,
+    away_team_id integer NOT NULL,
+    local_score smallint,
+    away_score smallint,
+    duration integer DEFAULT 90 NOT NULL,
+    stadium character varying(100),
+    CONSTRAINT match_away_score_check CHECK ((away_score >= 0)),
+    CONSTRAINT match_check CHECK ((local_team_id <> away_team_id)),
+    CONSTRAINT match_duration_check CHECK ((duration >= 0)),
+    CONSTRAINT match_local_score_check CHECK ((local_score >= 0))
+);
+
+
+--
+-- Name: matchday; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.matchday (
+    matchday_id integer NOT NULL,
+    season_id integer NOT NULL,
+    matchday_number smallint NOT NULL,
+    CONSTRAINT matchday_matchday_number_check CHECK ((matchday_number > 0))
+);
+
+
+--
+-- Name: matchday_matchday_id_seq; Type: SEQUENCE; Schema: core; Owner: -
+--
+
+ALTER TABLE core.matchday ALTER COLUMN matchday_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME core.matchday_matchday_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: participation; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.participation (
+    match_id integer NOT NULL,
+    player_id integer NOT NULL,
+    status reference.status_enum NOT NULL,
+    "position" reference.position_enum NOT NULL
+);
+
+
+--
+-- Name: season; Type: TABLE; Schema: core; Owner: -
+--
+
+CREATE TABLE core.season (
+    season_id smallint NOT NULL,
+    season_label character varying(20) NOT NULL,
+    competition_id smallint NOT NULL,
+    is_completed boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: season_season_id_seq; Type: SEQUENCE; Schema: core; Owner: -
+--
+
+ALTER TABLE core.season ALTER COLUMN season_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME core.season_season_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: competition; Type: TABLE; Schema: reference; Owner: -
+--
+
+CREATE TABLE reference.competition (
+    competition_id smallint NOT NULL,
+    current_champion_id smallint,
+    competition_name character varying NOT NULL,
+    is_international boolean DEFAULT false NOT NULL,
+    continent reference.continent_enum NOT NULL,
+    default_matchdays smallint DEFAULT 38 NOT NULL,
+    CONSTRAINT competition_default_matchdays_check CHECK ((default_matchdays > 0))
+);
+
+
+--
+-- Name: competition_competition_id_seq; Type: SEQUENCE; Schema: reference; Owner: -
+--
+
+ALTER TABLE reference.competition ALTER COLUMN competition_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME reference.competition_competition_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: player; Type: TABLE; Schema: reference; Owner: -
+--
+
+CREATE TABLE reference.player (
+    player_id integer NOT NULL,
+    player_name character varying(100) NOT NULL
+);
+
+
+--
+-- Name: team; Type: TABLE; Schema: reference; Owner: -
+--
+
+CREATE TABLE reference.team (
+    team_id integer NOT NULL,
+    team_name character varying(100) NOT NULL,
+    team_city character varying(100),
+    team_stadium character varying(100)
+);
+
+
+--
+-- Name: season_team; Type: TABLE; Schema: registry; Owner: -
+--
+
+CREATE TABLE registry.season_team (
+    season_team_id integer NOT NULL,
+    season_id integer NOT NULL,
+    team_id integer NOT NULL
+);
+
+
+--
+-- Name: season_team_season_team_id_seq; Type: SEQUENCE; Schema: registry; Owner: -
+--
+
+ALTER TABLE registry.season_team ALTER COLUMN season_team_id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME registry.season_team_season_team_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: team_player; Type: TABLE; Schema: registry; Owner: -
+--
+
+CREATE TABLE registry.team_player (
+    season_team_id integer NOT NULL,
+    player_id integer NOT NULL,
+    jersey_number smallint
+);
+
+
+--
+-- Name: defender_stats; Type: TABLE; Schema: stats; Owner: -
+--
+
+CREATE TABLE stats.defender_stats (
+    basic_stats_id integer NOT NULL,
+    tackles_won smallint,
+    interceptions smallint,
+    clearances smallint,
+    times_dribbled_past smallint,
+    errors_leading_to_goal smallint,
+    errors_leading_to_shot smallint,
+    possessions_won_final_third smallint,
+    fouls_committed smallint,
+    tackles_total smallint,
+    CONSTRAINT defender_stats_clearances_check CHECK ((clearances >= 0)),
+    CONSTRAINT defender_stats_errors_leading_to_goal_check CHECK ((errors_leading_to_goal >= 0)),
+    CONSTRAINT defender_stats_errors_leading_to_shot_check CHECK ((errors_leading_to_shot >= 0)),
+    CONSTRAINT defender_stats_fouls_committed_check CHECK ((fouls_committed >= 0)),
+    CONSTRAINT defender_stats_interceptions_check CHECK ((interceptions >= 0)),
+    CONSTRAINT defender_stats_possessions_won_final_third_check CHECK ((possessions_won_final_third >= 0)),
+    CONSTRAINT defender_stats_tackles_total_check CHECK ((tackles_total >= 0)),
+    CONSTRAINT defender_stats_tackles_won_check CHECK ((tackles_won >= 0)),
+    CONSTRAINT defender_stats_times_dribbled_past_check CHECK ((times_dribbled_past >= 0))
+);
+
+
+--
+-- Name: forward_stats; Type: TABLE; Schema: stats; Owner: -
+--
+
+CREATE TABLE stats.forward_stats (
+    basic_stats_id integer NOT NULL,
+    expected_assists real,
+    expected_goals real,
+    xg_from_shots_on_target real,
+    shots_total smallint,
+    shots_on_target smallint,
+    shots_off_target smallint,
+    big_chances smallint,
+    big_chances_missed smallint,
+    big_chances_scored smallint,
+    penalties_won smallint,
+    penalties_missed smallint,
+    offside smallint,
+    key_passes smallint,
+    dribbles_completed smallint,
+    dribbles_total smallint,
+    times_dribbled_past smallint,
+    fouls_committed smallint,
+    fouls_suffered smallint,
+    woodwork smallint,
+    CONSTRAINT forward_stats_big_chances_check CHECK ((big_chances >= 0)),
+    CONSTRAINT forward_stats_big_chances_missed_check CHECK ((big_chances_missed >= 0)),
+    CONSTRAINT forward_stats_big_chances_scored_check CHECK ((big_chances_scored >= 0)),
+    CONSTRAINT forward_stats_dribbles_completed_check CHECK ((dribbles_completed >= 0)),
+    CONSTRAINT forward_stats_dribbles_total_check CHECK ((dribbles_total >= 0)),
+    CONSTRAINT forward_stats_expected_assists_check CHECK ((expected_assists >= (0)::double precision)),
+    CONSTRAINT forward_stats_expected_goals_check CHECK ((expected_goals >= (0)::double precision)),
+    CONSTRAINT forward_stats_fouls_committed_check CHECK ((fouls_committed >= 0)),
+    CONSTRAINT forward_stats_fouls_suffered_check CHECK ((fouls_suffered >= 0)),
+    CONSTRAINT forward_stats_key_passes_check CHECK ((key_passes >= 0)),
+    CONSTRAINT forward_stats_offside_check CHECK ((offside >= 0)),
+    CONSTRAINT forward_stats_penalties_missed_check CHECK ((penalties_missed >= 0)),
+    CONSTRAINT forward_stats_penalties_won_check CHECK ((penalties_won >= 0)),
+    CONSTRAINT forward_stats_shots_off_target_check CHECK ((shots_off_target >= 0)),
+    CONSTRAINT forward_stats_shots_on_target_check CHECK ((shots_on_target >= 0)),
+    CONSTRAINT forward_stats_shots_total_check CHECK ((shots_total >= 0)),
+    CONSTRAINT forward_stats_times_dribbled_past_check CHECK ((times_dribbled_past >= 0)),
+    CONSTRAINT forward_stats_woodwork_check CHECK ((woodwork >= 0)),
+    CONSTRAINT forward_stats_xg_from_shots_on_target_check CHECK ((xg_from_shots_on_target >= (0)::double precision))
+);
+
+
+--
+-- Name: goalkeeper_stats; Type: TABLE; Schema: stats; Owner: -
+--
+
+CREATE TABLE stats.goalkeeper_stats (
+    basic_stats_id integer NOT NULL,
+    goalkeeper_saves smallint,
+    saves_inside_box smallint,
+    goals_conceded smallint,
+    xg_on_target_against double precision,
+    goals_prevented double precision,
+    punches_cleared smallint,
+    high_claims smallint,
+    clearances smallint,
+    penalties_received smallint,
+    penalties_saved smallint,
+    interceptions smallint,
+    times_dribbled_past smallint,
+    CONSTRAINT goalkeeper_stats_clearances_check CHECK ((clearances >= 0)),
+    CONSTRAINT goalkeeper_stats_goalkeeper_saves_check CHECK ((goalkeeper_saves >= 0)),
+    CONSTRAINT goalkeeper_stats_goals_conceded_check CHECK ((goals_conceded >= 0)),
+    CONSTRAINT goalkeeper_stats_high_claims_check CHECK ((high_claims >= 0)),
+    CONSTRAINT goalkeeper_stats_interceptions_check CHECK ((interceptions >= 0)),
+    CONSTRAINT goalkeeper_stats_penalties_received_check CHECK ((penalties_received >= 0)),
+    CONSTRAINT goalkeeper_stats_penalties_saved_check CHECK ((penalties_saved >= 0)),
+    CONSTRAINT goalkeeper_stats_punches_cleared_check CHECK ((punches_cleared >= 0)),
+    CONSTRAINT goalkeeper_stats_saves_inside_box_check CHECK ((saves_inside_box >= 0)),
+    CONSTRAINT goalkeeper_stats_times_dribbled_past_check CHECK ((times_dribbled_past >= 0)),
+    CONSTRAINT goalkeeper_stats_xg_on_target_against_check CHECK ((xg_on_target_against >= (0)::double precision))
+);
+
+
+--
+-- Name: midfielder_stats; Type: TABLE; Schema: stats; Owner: -
+--
+
+CREATE TABLE stats.midfielder_stats (
+    basic_stats_id integer NOT NULL,
+    expected_assists real,
+    tackles_won smallint,
+    tackles_total smallint,
+    crosses smallint,
+    fouls_committed smallint,
+    fouls_suffered smallint,
+    expected_goals real,
+    xg_from_shots_on_target real,
+    big_chances smallint,
+    big_chances_missed smallint,
+    big_chances_scored smallint,
+    interceptions smallint,
+    key_passes smallint,
+    passes_in_final_third smallint,
+    back_passes smallint,
+    long_passes_completed smallint,
+    woodwork smallint,
+    possessions_won_final_third smallint,
+    times_dribbled_past smallint,
+    dribbles_completed smallint,
+    dribbles_total smallint,
+    long_passes_total smallint,
+    crosses_total smallint,
+    shots_off_target smallint,
+    shots_on_target smallint,
+    shots_total smallint,
+    CONSTRAINT midfielder_stats_back_passes_check CHECK ((back_passes >= 0)),
+    CONSTRAINT midfielder_stats_big_chances_check CHECK ((big_chances >= 0)),
+    CONSTRAINT midfielder_stats_big_chances_missed_check CHECK ((big_chances_missed >= 0)),
+    CONSTRAINT midfielder_stats_big_chances_scored_check CHECK ((big_chances_scored >= 0)),
+    CONSTRAINT midfielder_stats_crosses_check CHECK ((crosses >= 0)),
+    CONSTRAINT midfielder_stats_crosses_total_check CHECK ((crosses_total >= 0)),
+    CONSTRAINT midfielder_stats_dribbles_completed_check CHECK ((dribbles_completed >= 0)),
+    CONSTRAINT midfielder_stats_dribbles_total_check CHECK ((dribbles_total >= 0)),
+    CONSTRAINT midfielder_stats_expected_assists_check CHECK ((expected_assists >= (0)::double precision)),
+    CONSTRAINT midfielder_stats_expected_goals_check CHECK ((expected_goals >= (0)::double precision)),
+    CONSTRAINT midfielder_stats_fouls_committed_check CHECK ((fouls_committed >= 0)),
+    CONSTRAINT midfielder_stats_fouls_suffered_check CHECK ((fouls_suffered >= 0)),
+    CONSTRAINT midfielder_stats_interceptions_check CHECK ((interceptions >= 0)),
+    CONSTRAINT midfielder_stats_key_passes_check CHECK ((key_passes >= 0)),
+    CONSTRAINT midfielder_stats_long_passes_completed_check CHECK ((long_passes_completed >= 0)),
+    CONSTRAINT midfielder_stats_long_passes_total_check CHECK ((long_passes_total >= 0)),
+    CONSTRAINT midfielder_stats_passes_in_final_third_check CHECK ((passes_in_final_third >= 0)),
+    CONSTRAINT midfielder_stats_possessions_won_final_third_check CHECK ((possessions_won_final_third >= 0)),
+    CONSTRAINT midfielder_stats_shots_off_target_check CHECK ((shots_off_target >= 0)),
+    CONSTRAINT midfielder_stats_shots_on_target_check CHECK ((shots_on_target >= 0)),
+    CONSTRAINT midfielder_stats_shots_total_check CHECK ((shots_total >= 0)),
+    CONSTRAINT midfielder_stats_tackles_total_check CHECK ((tackles_total >= 0)),
+    CONSTRAINT midfielder_stats_tackles_won_check CHECK ((tackles_won >= 0)),
+    CONSTRAINT midfielder_stats_times_dribbled_past_check CHECK ((times_dribbled_past >= 0)),
+    CONSTRAINT midfielder_stats_woodwork_check CHECK ((woodwork >= 0)),
+    CONSTRAINT midfielder_stats_xg_from_shots_on_target_check CHECK ((xg_from_shots_on_target >= (0)::double precision))
+);
+
+
+--
+-- Name: event event_id; Type: DEFAULT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event ALTER COLUMN event_id SET DEFAULT nextval('core.event_event_id_seq'::regclass);
+
+
+--
+-- Name: basic_stats basic_stats_match_id_player_id_key; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.basic_stats
+    ADD CONSTRAINT basic_stats_match_id_player_id_key UNIQUE (match_id, player_id);
+
+
+--
+-- Name: basic_stats basic_stats_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.basic_stats
+    ADD CONSTRAINT basic_stats_pkey PRIMARY KEY (basic_stats_id);
+
+
+--
+-- Name: event event_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event
+    ADD CONSTRAINT event_pkey PRIMARY KEY (event_id);
+
+
+--
+-- Name: match match_matchday_id_local_team_id_away_team_id_key; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.match
+    ADD CONSTRAINT match_matchday_id_local_team_id_away_team_id_key UNIQUE (matchday_id, local_team_id, away_team_id);
+
+
+--
+-- Name: match match_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.match
+    ADD CONSTRAINT match_pkey PRIMARY KEY (match_id);
+
+
+--
+-- Name: matchday matchday_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.matchday
+    ADD CONSTRAINT matchday_pkey PRIMARY KEY (matchday_id);
+
+
+--
+-- Name: matchday matchday_season_id_matchday_number_key; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.matchday
+    ADD CONSTRAINT matchday_season_id_matchday_number_key UNIQUE (season_id, matchday_number);
+
+
+--
+-- Name: participation participation_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.participation
+    ADD CONSTRAINT participation_pkey PRIMARY KEY (match_id, player_id);
+
+
+--
+-- Name: season season_competition_id_season_label_key; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.season
+    ADD CONSTRAINT season_competition_id_season_label_key UNIQUE (competition_id, season_label);
+
+
+--
+-- Name: season season_pkey; Type: CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.season
+    ADD CONSTRAINT season_pkey PRIMARY KEY (season_id);
+
+
+--
+-- Name: competition competition_competition_name_key; Type: CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.competition
+    ADD CONSTRAINT competition_competition_name_key UNIQUE (competition_name);
+
+
+--
+-- Name: competition competition_pkey; Type: CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.competition
+    ADD CONSTRAINT competition_pkey PRIMARY KEY (competition_id);
+
+
+--
+-- Name: player player_pkey; Type: CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.player
+    ADD CONSTRAINT player_pkey PRIMARY KEY (player_id);
+
+
+--
+-- Name: team team_pkey; Type: CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.team
+    ADD CONSTRAINT team_pkey PRIMARY KEY (team_id);
+
+
+--
+-- Name: team team_team_name_key; Type: CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.team
+    ADD CONSTRAINT team_team_name_key UNIQUE (team_name);
+
+
+--
+-- Name: season_team season_team_pkey; Type: CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.season_team
+    ADD CONSTRAINT season_team_pkey PRIMARY KEY (season_team_id);
+
+
+--
+-- Name: season_team season_team_season_id_team_id_key; Type: CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.season_team
+    ADD CONSTRAINT season_team_season_id_team_id_key UNIQUE (season_id, team_id);
+
+
+--
+-- Name: team_player team_player_pkey; Type: CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.team_player
+    ADD CONSTRAINT team_player_pkey PRIMARY KEY (season_team_id, player_id);
+
+
+--
+-- Name: defender_stats defender_stats_pkey; Type: CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.defender_stats
+    ADD CONSTRAINT defender_stats_pkey PRIMARY KEY (basic_stats_id);
+
+
+--
+-- Name: forward_stats forward_stats_pkey; Type: CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.forward_stats
+    ADD CONSTRAINT forward_stats_pkey PRIMARY KEY (basic_stats_id);
+
+
+--
+-- Name: goalkeeper_stats goalkeeper_stats_pkey; Type: CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.goalkeeper_stats
+    ADD CONSTRAINT goalkeeper_stats_pkey PRIMARY KEY (basic_stats_id);
+
+
+--
+-- Name: midfielder_stats midfielder_stats_pkey; Type: CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.midfielder_stats
+    ADD CONSTRAINT midfielder_stats_pkey PRIMARY KEY (basic_stats_id);
+
+
+--
+-- Name: idx_core_match_away_team_id; Type: INDEX; Schema: core; Owner: -
+--
+
+CREATE INDEX idx_core_match_away_team_id ON core.match USING btree (away_team_id);
+
+
+--
+-- Name: idx_core_match_local_team_id; Type: INDEX; Schema: core; Owner: -
+--
+
+CREATE INDEX idx_core_match_local_team_id ON core.match USING btree (local_team_id);
+
+
+--
+-- Name: season trg_insert_matchdays; Type: TRIGGER; Schema: core; Owner: -
+--
+
+CREATE TRIGGER trg_insert_matchdays AFTER INSERT ON core.season FOR EACH ROW EXECUTE FUNCTION core.trigger_insert_matchdays();
+
+
+--
+-- Name: basic_stats basic_stats_match_id_player_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.basic_stats
+    ADD CONSTRAINT basic_stats_match_id_player_id_fkey FOREIGN KEY (match_id, player_id) REFERENCES core.participation(match_id, player_id) ON DELETE CASCADE;
+
+
+--
+-- Name: event event_extra_player_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event
+    ADD CONSTRAINT event_extra_player_id_fkey FOREIGN KEY (extra_player_id) REFERENCES reference.player(player_id);
+
+
+--
+-- Name: event event_main_player_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event
+    ADD CONSTRAINT event_main_player_id_fkey FOREIGN KEY (main_player_id) REFERENCES reference.player(player_id);
+
+
+--
+-- Name: event event_match_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event
+    ADD CONSTRAINT event_match_id_fkey FOREIGN KEY (match_id) REFERENCES core.match(match_id) ON DELETE CASCADE;
+
+
+--
+-- Name: event event_team_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.event
+    ADD CONSTRAINT event_team_id_fkey FOREIGN KEY (team_id) REFERENCES reference.team(team_id) ON DELETE CASCADE;
+
+
+--
+-- Name: match match_away_team_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.match
+    ADD CONSTRAINT match_away_team_id_fkey FOREIGN KEY (away_team_id) REFERENCES reference.team(team_id) ON DELETE CASCADE;
+
+
+--
+-- Name: match match_local_team_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.match
+    ADD CONSTRAINT match_local_team_id_fkey FOREIGN KEY (local_team_id) REFERENCES reference.team(team_id) ON DELETE CASCADE;
+
+
+--
+-- Name: match match_matchday_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.match
+    ADD CONSTRAINT match_matchday_id_fkey FOREIGN KEY (matchday_id) REFERENCES core.matchday(matchday_id) ON DELETE CASCADE;
+
+
+--
+-- Name: matchday matchday_season_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.matchday
+    ADD CONSTRAINT matchday_season_id_fkey FOREIGN KEY (season_id) REFERENCES core.season(season_id) ON DELETE CASCADE;
+
+
+--
+-- Name: participation participation_match_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.participation
+    ADD CONSTRAINT participation_match_id_fkey FOREIGN KEY (match_id) REFERENCES core.match(match_id) ON DELETE CASCADE;
+
+
+--
+-- Name: participation participation_player_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.participation
+    ADD CONSTRAINT participation_player_id_fkey FOREIGN KEY (player_id) REFERENCES reference.player(player_id);
+
+
+--
+-- Name: season season_competition_id_fkey; Type: FK CONSTRAINT; Schema: core; Owner: -
+--
+
+ALTER TABLE ONLY core.season
+    ADD CONSTRAINT season_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES reference.competition(competition_id) ON DELETE CASCADE;
+
+
+--
+-- Name: competition competition_current_champion_id_fkey; Type: FK CONSTRAINT; Schema: reference; Owner: -
+--
+
+ALTER TABLE ONLY reference.competition
+    ADD CONSTRAINT competition_current_champion_id_fkey FOREIGN KEY (current_champion_id) REFERENCES reference.team(team_id);
+
+
+--
+-- Name: season_team season_team_season_id_fkey; Type: FK CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.season_team
+    ADD CONSTRAINT season_team_season_id_fkey FOREIGN KEY (season_id) REFERENCES core.season(season_id) ON DELETE CASCADE;
+
+
+--
+-- Name: season_team season_team_team_id_fkey; Type: FK CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.season_team
+    ADD CONSTRAINT season_team_team_id_fkey FOREIGN KEY (team_id) REFERENCES reference.team(team_id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_player team_player_player_id_fkey; Type: FK CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.team_player
+    ADD CONSTRAINT team_player_player_id_fkey FOREIGN KEY (player_id) REFERENCES reference.player(player_id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_player team_player_season_team_id_fkey; Type: FK CONSTRAINT; Schema: registry; Owner: -
+--
+
+ALTER TABLE ONLY registry.team_player
+    ADD CONSTRAINT team_player_season_team_id_fkey FOREIGN KEY (season_team_id) REFERENCES registry.season_team(season_team_id) ON DELETE CASCADE;
+
+
+--
+-- Name: defender_stats defender_stats_basic_stats_id_fkey; Type: FK CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.defender_stats
+    ADD CONSTRAINT defender_stats_basic_stats_id_fkey FOREIGN KEY (basic_stats_id) REFERENCES core.basic_stats(basic_stats_id) ON DELETE CASCADE;
+
+
+--
+-- Name: forward_stats forward_stats_basic_stats_id_fkey; Type: FK CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.forward_stats
+    ADD CONSTRAINT forward_stats_basic_stats_id_fkey FOREIGN KEY (basic_stats_id) REFERENCES core.basic_stats(basic_stats_id) ON DELETE CASCADE;
+
+
+--
+-- Name: goalkeeper_stats goalkeeper_stats_basic_stats_id_fkey; Type: FK CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.goalkeeper_stats
+    ADD CONSTRAINT goalkeeper_stats_basic_stats_id_fkey FOREIGN KEY (basic_stats_id) REFERENCES core.basic_stats(basic_stats_id) ON DELETE CASCADE;
+
+
+--
+-- Name: midfielder_stats midfielder_stats_basic_stats_id_fkey; Type: FK CONSTRAINT; Schema: stats; Owner: -
+--
+
+ALTER TABLE ONLY stats.midfielder_stats
+    ADD CONSTRAINT midfielder_stats_basic_stats_id_fkey FOREIGN KEY (basic_stats_id) REFERENCES core.basic_stats(basic_stats_id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict L61PRfv7mMHLSV0e56b6iasRf4DcnVkCymXGmqsyhRp0kQMHzOc9CTFA8z3l3vk
+
