@@ -73,7 +73,7 @@ def run_etl(trigger_source: str = "scheduler") -> None:
                             # =====================================================
                             # Bloque 2: Dimensiones
                             # =====================================================
-                            upsert_dimensions_for_match(conn, match_id)
+                            upsert_dimensions_for_match(conn, match_id, settings=settings)
 
                             # =====================================================
                             # Bloque 3: Hechos
