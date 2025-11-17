@@ -10,3 +10,4 @@ fechas_txt/
 logs/
 __pycache__/
 *.pyc
+data_source/*

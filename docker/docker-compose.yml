@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:18
     container_name: fifth_referee_db
     environment:
       POSTGRES_DB: fifth_referee
@@ -9,10 +9,77 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - fr_pgdata:/var/lib/postgresql/data
+      - fr_pgdata:/var/lib/postgresql
       - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fr_user -d fifth_referee"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
+
+  etl:
+    build:
+      context: ..
+      dockerfile: etl/Dockerfile
+    container_name: fifth_referee_etl
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: fifth_referee
+      DB_USER: fr_user
+      DB_PASSWORD: fr_password
+    command:
+      - python
+      - -m
+      - etl.main
+    restart: "no"
+
+  etl_smoke:
+    profiles: [smoke]
+    build:
+      context: ..
+      dockerfile: etl/Dockerfile
+    container_name: fifth_referee_etl_smoke
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: fifth_referee
+      DB_USER: fr_user
+      DB_PASSWORD: fr_password
+    command:
+      - python
+      - -m
+      - etl.smoke_test
+    restart: "no"
+
+  data_source:
+    profiles: [data_source]
+    build:
+      context: ../data_source
+      dockerfile: Dockerfile
+    container_name: fifth_referee_data_source
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: fifth_referee
+      DB_USER: fr_user
+      DB_PASSWORD: fr_password
+
+      SEASON: "2025_2026"
+      COMPETITIONS: "bundesliga,la_liga,ligue_1,premier_league,primeira_liga,serie_a,eredivisie,uefa_champions_league"
+      JORNADA_MIN: "1"
+      JORNADA_MAX: "38"
+    restart: "no"
 
 volumes:
   fr_pgdata:
-
